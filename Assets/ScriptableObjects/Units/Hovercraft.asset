@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f53042f779b5a98a9578fcc4e92bf5a, type: 3}
+  m_Name: Hovercraft
+  m_EditorClassIdentifier: Assembly-CSharp::UnitData
+  unitName: Hovercraft
+  entityType: 3
+  maxHealth: 200
+  damage: 25
+  attackRange: 2.5
+  attacksPerSecond: 1
+  moveSpeed: 4
+  metalCostPerUnit: 100
+  energyCostPerUnit: 50
+  prefab: {fileID: 5083719467118083729, guid: 6c5f78d17db01cbe4be93a209a5be4a0, type: 3}
+  idleSprite: {fileID: 21300000, guid: 698c21205a7fcd17c85898d68d9d608c, type: 3}
+  shootingSprite: {fileID: 21300000, guid: 63ee4cc54db533acbb401bbec88c7851, type: 3}

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f53042f779b5a98a9578fcc4e92bf5a, type: 3}
+  m_Name: HeavyTank
+  m_EditorClassIdentifier: Assembly-CSharp::UnitData
+  unitName: HeavyTank
+  entityType: 4
+  maxHealth: 350
+  damage: 40
+  attackRange: 4.5
+  attacksPerSecond: 0.5
+  moveSpeed: 1.5
+  metalCostPerUnit: 100
+  energyCostPerUnit: 50
+  prefab: {fileID: 5846816724767510720, guid: 8ac531041a5084d69bda9fc90c826890, type: 3}
+  idleSprite: {fileID: 21300000, guid: 6680099ffda5a7269a8128f15e0fcdae, type: 3}
+  shootingSprite: {fileID: 21300000, guid: 0e6067393fa1a6327ad062c2e5b80712, type: 3}

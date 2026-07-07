@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Pre-commit hook: blocks commits that look like they contain leaked
+# credentials or tokens (API keys, private keys, signing keystores, etc).
+#
+# Enable once per clone with:
+#   git config core.hooksPath .githooks
+#
+# Bypass a single commit (use sparingly, only for verified false positives):
+#   git commit --no-verify
+
+set -euo pipefail
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+found=0
+
+# -----------------------------------------------------------------------
+# 1) Filenames that should essentially never be committed as-is
+#    (Android/iOS signing keys are the main risk in a Unity mobile project)
+# -----------------------------------------------------------------------
+sensitive_name_pattern='(^|/)(\.env(\..*)?|.*\.keystore|.*\.jks|.*\.p12|.*\.pfx|.*\.pem|id_rsa|id_dsa|id_ecdsa|id_ed25519|.*\.mobileprovision|.*_?[Kk]ey\.json)$'
+
+# -----------------------------------------------------------------------
+# 2) Content patterns for well-known secret formats + generic assignments
+# -----------------------------------------------------------------------
+content_patterns=(
+    '-----BEGIN[A-Z ]*PRIVATE KEY-----'                          # any PEM private key
+    'AKIA[0-9A-Z]{16}'                                           # AWS access key id
+    'AIza[0-9A-Za-z_-]{35}'                                      # Google API key
+    'gh[pousr]_[A-Za-z0-9]{36,}'                                 # GitHub token
+    'xox[baprs]-[0-9A-Za-z-]{10,}'                               # Slack token
+    'sk-[A-Za-z0-9]{20,}'                                        # OpenAI/Anthropic-style secret key
+    '(api|secret|token|password|passwd|pwd)[_-]?(key)?[[:space:]]*[:=][[:space:]]*['"'"'"][A-Za-z0-9_/+=-]{12,}['"'"'"]'
+)
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$staged_files" ]; then
+    exit 0
+fi
+
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+
+    if echo "$file" | grep -Eiq "$sensitive_name_pattern"; then
+        echo -e "${RED}[secret-scan]${NC} blocked filename: $file"
+        found=1
+        continue
+    fi
+
+    # Skip binary files (images, audio, etc.) — diff --numstat prints "-" for them
+    if git diff --cached --numstat -- "$file" | awk '{exit !($1 == "-")}'; then
+        continue
+    fi
+
+    content=$(git show ":$file" 2>/dev/null || true)
+    [ -z "$content" ] && continue
+
+    for pattern in "${content_patterns[@]}"; do
+        matches=$(echo "$content" | grep -EnI -e "$pattern" || true)
+        if [ -n "$matches" ]; then
+            echo -e "${RED}[secret-scan]${NC} possible secret in ${YELLOW}$file${NC}:"
+            echo "$matches" | sed 's/^/    /'
+            found=1
+        fi
+    done
+done <<< "$staged_files"
+
+if [ "$found" -ne 0 ]; then
+    echo ""
+    echo -e "${RED}Commit blocked:${NC} possible credentials/tokens detected above."
+    echo "If this is a false positive, fix the pattern or bypass with:"
+    echo "  git commit --no-verify"
+    exit 1
+fi
+
+exit 0

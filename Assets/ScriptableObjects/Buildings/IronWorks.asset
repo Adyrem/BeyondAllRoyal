@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28a43fef41112814c8b86d36188baf15, type: 3}
+  m_Name: IronWorks
+  m_EditorClassIdentifier: Assembly-CSharp::ProductionBuildingData
+  buildingName: IronWorks
+  maxHealth: 200
+  metalCostToBuild: 80
+  energyCostToBuild: 80
+  slotSize: {x: 3, y: 3}
+  energyBufferCapacity: 100
+  prefab: {fileID: 0}
+  spriteFrameA: {fileID: 21300000, guid: 2529fa051cf1f6f8282efc74768f3515, type: 3}
+  spriteFrameB: {fileID: 21300000, guid: d1dc24d7364442a879e75c2b8e83b9c7, type: 3}
+  spriteCycleInterval: 1
+  unitToProduced: {fileID: 11400000, guid: c0e594c40da5ba9908a4178e3f6d5ba8, type: 2}

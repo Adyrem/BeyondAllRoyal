@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28a43fef41112814c8b86d36188baf15, type: 3}
+  m_Name: Barracks
+  m_EditorClassIdentifier: Assembly-CSharp::ProductionBuildingData
+  buildingName: Barracks
+  maxHealth: 200
+  metalCostToBuild: 30
+  energyCostToBuild: 20
+  slotSize: {x: 1, y: 1}
+  energyBufferCapacity: 60
+  prefab: {fileID: 0}
+  spriteFrameA: {fileID: 21300000, guid: c4705d2aa04e993d28a42c0c16d43b5d, type: 3}
+  spriteFrameB: {fileID: 21300000, guid: cffd65fd8a9c3f3ce8d17b11c12802e5, type: 3}
+  spriteCycleInterval: 1
+  unitToProduced: {fileID: 11400000, guid: 93f8d4017886bf8bdae38e6ee43ecfd0, type: 2}

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28a43fef41112814c8b86d36188baf15, type: 3}
+  m_Name: SkimmerPad
+  m_EditorClassIdentifier: Assembly-CSharp::ProductionBuildingData
+  buildingName: SkimmerPad
+  maxHealth: 200
+  metalCostToBuild: 50
+  energyCostToBuild: 50
+  slotSize: {x: 2, y: 2}
+  energyBufferCapacity: 100
+  prefab: {fileID: 0}
+  spriteFrameA: {fileID: 21300000, guid: d2381d70d31814ad5870fc80f21a0dd5, type: 3}
+  spriteFrameB: {fileID: 21300000, guid: 3598396d5d2bd000eb8688079566988a, type: 3}
+  spriteCycleInterval: 1
+  unitToProduced: {fileID: 11400000, guid: 444d67c6cc44dad1d88592cb4d26821a, type: 2}

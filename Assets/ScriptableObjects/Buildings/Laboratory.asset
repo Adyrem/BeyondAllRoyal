@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28a43fef41112814c8b86d36188baf15, type: 3}
+  m_Name: Laboratory
+  m_EditorClassIdentifier: Assembly-CSharp::ProductionBuildingData
+  buildingName: Laboratory
+  maxHealth: 200
+  metalCostToBuild: 20
+  energyCostToBuild: 30
+  slotSize: {x: 1, y: 1}
+  energyBufferCapacity: 60
+  prefab: {fileID: 0}
+  spriteFrameA: {fileID: 21300000, guid: 3483ad71781657fb8b589d623f5a0238, type: 3}
+  spriteFrameB: {fileID: 21300000, guid: 4fd8ef54595a3915a9e1d8bb5eb340d3, type: 3}
+  spriteCycleInterval: 1
+  unitToProduced: {fileID: 11400000, guid: 621dd60c36aa48f8eb791c177318f8e8, type: 2}
