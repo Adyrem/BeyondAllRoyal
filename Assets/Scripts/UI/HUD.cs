@@ -27,12 +27,14 @@ public class HUD : MonoBehaviour
     [SerializeField] private GameObject      placementInfoPanel;
     [SerializeField] private TextMeshProUGUI placementBuildingName;
     [SerializeField] private TextMeshProUGUI placementCostText;
+    [SerializeField] private Button          cancelPlacementButton;
 
     [Header("Selected building info")]
     [SerializeField] private GameObject      buildingInfoPanel;
     [SerializeField] private TextMeshProUGUI buildingInfoName;
     [SerializeField] private Slider          energyBar;
     [SerializeField] private TextMeshProUGUI energyLabel;
+    [SerializeField] private Button          demolishButton;
 
     [Header("Minimum metal reserve")]
     [SerializeField] private Slider          minimumReserveSlider;
@@ -55,6 +57,11 @@ public class HUD : MonoBehaviour
         toggleProductionButton?.onClick.AddListener(OnToggleProduction);
         shopToggleButton?.onClick.AddListener(ToggleShop);
         minimumReserveSlider?.onValueChanged.AddListener(OnMinimumReserveChanged);
+        // Touch devices have no Escape key or right-click, so this button is the
+        // only way to cancel placement on mobile — BuildingPlacer still also
+        // accepts Escape/right-click for desktop testing.
+        cancelPlacementButton?.onClick.AddListener(() => BuildingPlacer.Instance?.CancelPlacement());
+        demolishButton?.onClick.AddListener(OnDemolishClicked);
     }
 
     private void Start()
@@ -129,6 +136,8 @@ public class HUD : MonoBehaviour
                 buildingInfoName.text = building.Data.buildingName;
         }
 
+        demolishButton?.gameObject.SetActive(hasBuilding && building is not HQ);
+
         bool hasProd = selectedProduction != null;
         productionPanel?.SetActive(hasProd);
         if (hasProd && productionBuildingName != null)
@@ -139,6 +148,13 @@ public class HUD : MonoBehaviour
     {
         if (selectedProduction == null) return;
         selectedProduction.SetProducing(!selectedProduction.IsProducing);
+    }
+
+    private void OnDemolishClicked()
+    {
+        if (selectedBuilding == null || selectedBuilding is HQ) return;
+        selectedBuilding.Demolish();
+        BuildingSelector.Instance?.Deselect();
     }
 
     private void ToggleShop()

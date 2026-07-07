@@ -161,23 +161,35 @@ public class MapGrid : MonoBehaviour
         return (a.transform.position + b.transform.position) * 0.5f;
     }
 
-    // Converts a screen/world touch position to the nearest grid position for the given owner.
-    public Vector2Int WorldToGridPosition(Vector3 worldPos, Owner owner)
+    // Converts a screen/world touch position to the grid origin for a footprint of
+    // the given size, centered as closely as possible on worldPos (not anchored at
+    // one corner), clamped to stay within the owner's rows and the map's columns.
+    public Vector2Int GetPlacementOrigin(Vector3 worldPos, Owner owner, Vector2Int size)
     {
-        int col = Mathf.RoundToInt((worldPos.x - xLeft) / xSpacing);
-        col = Mathf.Clamp(col, 0, layout.columns - 1);
+        float colF = (worldPos.x - xLeft) / xSpacing;
 
-        int row;
+        float rowF;
+        int rowMin, rowMax;
         if (owner == Owner.Player)
         {
             float ty = (worldPos.y + innerY) / (-outerY + innerY);
-            row = Mathf.Clamp(Mathf.RoundToInt(ty * (layout.rows - 1)), 0, layout.rows - 1);
+            rowF = ty * (layout.rows - 1);
+            rowMin = 0;
+            rowMax = layout.rows - size.y;
         }
         else
         {
             float ty = (worldPos.y - innerY) / (outerY - innerY);
-            row = Mathf.Clamp(Mathf.RoundToInt(ty * (layout.rows - 1)), 0, layout.rows - 1) + layout.rows;
+            rowF = ty * (layout.rows - 1) + layout.rows;
+            rowMin = layout.rows;
+            rowMax = layout.rows * 2 - size.y;
         }
+
+        int col = Mathf.RoundToInt(colF - (size.x - 1) / 2f);
+        int row = Mathf.RoundToInt(rowF - (size.y - 1) / 2f);
+
+        col = Mathf.Clamp(col, 0, layout.columns - size.x);
+        row = Mathf.Clamp(row, rowMin, rowMax);
 
         return new Vector2Int(col, row);
     }
@@ -192,6 +204,12 @@ public class MapGrid : MonoBehaviour
 
     public Vector3 GetWorldPosition(Vector2Int gridPos) =>
         slots.TryGetValue(gridPos, out var s) ? s.transform.position : Vector3.zero;
+
+    // True if worldPos lies on the given owner's half of the map (Player rows sit
+    // at negative Y, NPC rows at positive Y — see GenerateSlots). Used by units to
+    // detect an enemy incursion onto their own side.
+    public bool IsOnSide(Vector3 worldPos, Owner owner) =>
+        owner == Owner.Player ? worldPos.y < 0f : worldPos.y > 0f;
 
     // Finds the first unoccupied origin that fits the given size for the given owner.
     // Rows near the HQ (the back of the owner's row range) are searched first, so

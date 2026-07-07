@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Win condition:** Destroy the enemy HQ
 - **Game mode (MVP):** 1v1 vs NPC; multiplayer planned post-MVP
-- **Unit behavior:** Fully autonomous — target priority is buildings in attack range > units in attack range > buildings out of range > units out of range; no micro required
+- **Unit behavior:** Fully autonomous — target priority is enemy units that have pushed onto our own side of the map > buildings in attack range > units in attack range > buildings out of range > units out of range; no micro required
 - **Production:** Unit-producing buildings continuously produce units unless manually stopped
 - **Perspective:** Fixed camera, 2D (mobile-first, performance-conscious)
 
@@ -56,13 +56,10 @@ The MVP NPC continuously produces 3 pre-selected unit types at equal rates. No s
 
 1. Open Unity Hub → New Project → **2D (URP)** → set location to this folder
 2. Unity generates `Packages/` and `ProjectSettings/` — all scripts are already in `Assets/Scripts/`
-3. In the scene, create GameObjects for `GameManager`, `ResourceManager`, `MapGrid`, `HUD`, `NPCController`
-4. Run the `Assets/Scripts/Editor/ProjectSetup.cs` menu items in order — these generate and wire almost everything else:
-   - `BeyondAllRoyal → 1 - Create ScriptableObjects` (stats, counter chart, game settings, map layout)
-   - `BeyondAllRoyal → 2 - Create Prefabs (run step 1 first)` (unit/building prefabs)
-   - `BeyondAllRoyal → 3 - Import Sprites and Assign to Data + Prefabs` (imports `Assets/Sprites/**` and assigns them to `UnitData`/`BuildingData` and prefab `SpriteRenderer`s)
-   - `BeyondAllRoyal → 4 - Auto-Wire Shop Icons` (run once the shop panel/buttons exist in-scene; assigns each button's own `Image` as its icon unless already set — save the scene afterward)
-   - `BeyondAllRoyal → 5 - Create Minimum Reserve Slider` (run once HUD exists in-scene; builds an unstyled `Slider` + label under HUD's Canvas and wires them to `HUD.minimumReserveSlider`/`minimumReserveLabel` — reposition/style and save the scene afterward)
+3. In the scene, create GameObjects for `GameManager`, `ResourceManager`, `MapGrid`, `HUD`, `NPCController`, and add a `BuildingShopPanel` under HUD's Canvas
+4. Run `Assets/Scripts/Editor/ProjectSetup.cs`'s two menu items, in order:
+   - `BeyondAllRoyal → 1 - Setup Project Assets` — no scene needed; creates/wires ScriptableObjects, prefabs, and sprites (internally: ScriptableObjects → Prefabs → Sprites)
+   - `BeyondAllRoyal → 2 - Wire Scene` — run once the GameObjects from step 3 exist; populates the shop panel with one button per placeable building, backfills any missing shop icons, creates the minimum-reserve slider under HUD's Canvas, adds a Cancel button under `HUD.placementInfoPanel`, and a Demolish button under `HUD.buildingInfoPanel` (internally: Populate Shop Panel → Auto-Wire Shop Icons → Create Minimum Reserve Slider → Create Cancel Placement Button → Create Demolish Button). Reposition/style the new UI as needed, then save the scene.
 5. Assign the generated `GameSettings` asset to `GameManager` in the Inspector (everything else `ProjectSetup` created is already cross-referenced)
 
 ## Code Architecture
@@ -85,7 +82,7 @@ All runtime data lives in **ScriptableObjects** (`Assets/Scripts/Data/`). MonoBe
 
 ### Building hierarchy (`Scripts/Buildings/`)
 
-`Building` is the base class. It owns the **energy buffer**, the **construction tick** (energy drains from buffer until `energyCostToBuild` is met), `TakeDamage`, the **grid origin** it was placed at (`GridOrigin`, set by `MapGrid.TryPlaceBuilding`, freed via `MapGrid.RemoveBuilding` on destruction), and the two-frame **sprite cycle** (`data.spriteFrameA`/`spriteFrameB`, swapped every `data.spriteCycleInterval` seconds — also shared as the build-menu icon). Subclasses override `Update` and call `base.Update()`.
+`Building` is the base class. It owns the **energy buffer**, the **construction tick** (energy drains from buffer until `energyCostToBuild` is met), `TakeDamage`, the **grid origin** it was placed at (`GridOrigin`, set by `MapGrid.TryPlaceBuilding`, freed via `MapGrid.RemoveBuilding` on destruction), and the two-frame **sprite cycle** (`data.spriteFrameA`/`spriteFrameB`, swapped every `data.spriteCycleInterval` seconds — also shared as the build-menu icon). `Demolish()` lets the player voluntarily remove a building they own (wired to a HUD button, hidden for HQ); `HQ` overrides it to refuse, since the HQ can only be lost in combat. Subclasses override `Update` and call `base.Update()`.
 
 - `ProductionBuilding` — reserves metal upfront, then drains energy until one unit's `energyCostPerUnit` is reached, then spawns the unit
 - `DefenseTower` — scans for nearest enemy unit each frame (via `Building.FindNearestEnemyUnitInRange`), fires when in range if energy buffer allows. Every attack (`DefenseTower`, `HQ`, and `UnitAI`) draws a placeholder `AttackBeamSpawner` line from attacker to target — blue for the player, red for the NPC (`Assets/Scripts/Effects/`) — swap its internals for a fancier effect later without touching call sites
@@ -95,11 +92,11 @@ All runtime data lives in **ScriptableObjects** (`Assets/Scripts/Data/`). MonoBe
 
 ### Unit (`Scripts/Units/`)
 
-`Unit` holds stats, health, and its `idleSprite`/`shootingSprite` (the latter flashes briefly via `FlashShootingSprite()` whenever `UnitAI` fires). `UnitAI` (required component) picks a target each frame by priority: nearest enemy building in attack range, else nearest enemy unit in attack range, else nearest enemy building (move toward it), else nearest enemy unit (move toward it). Counter multipliers are applied via `CounterSystem.GetDamageMultiplier`.
+`Unit` holds stats, health, and its `idleSprite`/`shootingSprite` (the latter flashes briefly via `FlashShootingSprite()` whenever `UnitAI` fires). `UnitAI` (required component) picks a target each frame by priority: nearest enemy unit that has crossed onto our own side of the map (via `MapGrid.IsOnSide`), else nearest enemy building in attack range, else nearest enemy unit in attack range, else nearest enemy building (move toward it), else nearest enemy unit (move toward it). Counter multipliers are applied via `CounterSystem.GetDamageMultiplier`.
 
 ### Map (`Scripts/Map/`)
 
-`MapGrid` (singleton) instantiates `BuildingSlot` objects from a `MapLayoutData` SO. `TryPlaceBuilding` validates slot ownership and occupancy before marking slots as occupied.
+`MapGrid` (singleton) instantiates `BuildingSlot` objects from a `MapLayoutData` SO. `TryPlaceBuilding` validates slot ownership and occupancy before marking slots as occupied. `GetPlacementOrigin(worldPos, owner, size)` converts a tap/cursor position to a footprint origin centered as closely as possible on that position (not anchored at one corner), clamped to stay on the grid — used by `BuildingPlacer` so the ghost (and the eventual placed building) span the cells actually centered under the cursor.
 
 ### Key singletons
 

@@ -17,13 +17,23 @@ public class UnitAI : MonoBehaviour
 
         attackCooldown -= Time.deltaTime;
 
+        // Defending home turf comes first: an enemy unit that has pushed onto our
+        // own side of the map takes priority over everything else below.
+        var homeIntruder = FindNearestEnemyUnit(u => MapGrid.Instance.IsOnSide(u.transform.position, unit.Owner));
+        if (homeIntruder != null)
+        {
+            currentUnitTarget = homeIntruder;
+            HandleUnitCombat();
+            return;
+        }
+
         var nearestBuilding = FindNearestEnemyBuilding();
         var nearestUnit     = FindNearestEnemyUnit();
 
         bool buildingInRange = nearestBuilding != null && InRange(nearestBuilding.transform.position);
         bool unitInRange     = nearestUnit != null && InRange(nearestUnit.transform.position);
 
-        // Priority: buildings in range > units in range > buildings out of range > units out of range.
+        // Priority: home intruders > buildings in range > units in range > buildings out of range > units out of range.
         if (buildingInRange)
         {
             HandleBuildingAssault(nearestBuilding);
@@ -107,13 +117,14 @@ public class UnitAI : MonoBehaviour
     // Target finding
     // -------------------------------------------------------------------------
 
-    private Unit FindNearestEnemyUnit()
+    private Unit FindNearestEnemyUnit(System.Func<Unit, bool> filter = null)
     {
         Unit nearest = null;
         float nearestDist = float.MaxValue;
         foreach (var u in UnitRegistry.All)
         {
             if (u.Owner == unit.Owner || u == unit) continue;
+            if (filter != null && !filter(u)) continue;
             float dist = Vector2.Distance(transform.position, u.transform.position);
             if (dist < nearestDist) { nearest = u; nearestDist = dist; }
         }

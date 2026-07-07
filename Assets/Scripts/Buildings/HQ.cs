@@ -45,4 +45,9 @@ public class HQ : Building
         GameManager.Instance.OnHQDestroyed(Owner);
         base.OnDestroyed();
     }
+
+    public override void Demolish()
+    {
+        Debug.LogWarning($"[HQ] '{name}': the HQ cannot be demolished.");
+    }
 }

@@ -169,6 +169,11 @@ public class Building : MonoBehaviour
 
     protected virtual void OnConstructionComplete() { }
 
+    // Voluntarily removes this building, freeing its grid slot(s). Used by the
+    // player's Demolish action; overridden by HQ to refuse, since the HQ can
+    // only be lost in combat, not demolished by choice.
+    public virtual void Demolish() => OnDestroyed();
+
     protected virtual void OnDestroyed()
     {
         MapGrid.Instance?.RemoveBuilding(GridOrigin, data.slotSize);

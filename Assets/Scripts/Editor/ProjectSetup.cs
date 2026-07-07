@@ -1,13 +1,42 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
-// Run from the Unity menu: BeyondAllRoyal → 1 - Create ScriptableObjects, then → 2 - Create Prefabs
+// Run from the Unity menu, in order:
+//   BeyondAllRoyal → 1 - Setup Project Assets   (no scene needed)
+//   BeyondAllRoyal → 2 - Wire Scene             (run once GameManager/HUD/MapGrid/BuildingShopPanel exist in-scene)
 public static class ProjectSetup
 {
+    // -------------------------------------------------------------------------
+    // Consolidated entry points — everything below is grouped into these two
+    // menu items so there's only one asset step and one scene step to run.
+    // -------------------------------------------------------------------------
+
+    [MenuItem("BeyondAllRoyal/1 - Setup Project Assets (ScriptableObjects + Prefabs + Sprites)")]
+    public static void SetupProjectAssets()
+    {
+        CreateScriptableObjects();
+        CreatePrefabs();
+        ImportAndAssignSprites();
+        Debug.Log("[BeyondAllRoyal] Project assets set up. Run 2 - Wire Scene once the scene's GameObjects exist.");
+    }
+
+    [MenuItem("BeyondAllRoyal/2 - Wire Scene (Shop Panel + Icons + Reserve Slider + Cancel/Demolish Buttons)")]
+    public static void WireScene()
+    {
+        PopulateShopPanel();
+        AutoWireShopIcons();
+        CreateMinimumReserveSlider();
+        CreateCancelPlacementButton();
+        CreateDemolishButton();
+        Debug.Log("[BeyondAllRoyal] Scene wiring done. Reposition/style the new UI as needed, then save the scene.");
+    }
+
     const string SOUnits     = "Assets/ScriptableObjects/Units";
     const string SOBuildings = "Assets/ScriptableObjects/Buildings";
     const string SOMaps      = "Assets/ScriptableObjects/Maps";
@@ -25,11 +54,10 @@ public static class ProjectSetup
     };
 
     // -------------------------------------------------------------------------
-    // Step 1
+    // Step 1a — ScriptableObjects
     // -------------------------------------------------------------------------
 
-    [MenuItem("BeyondAllRoyal/1 - Create ScriptableObjects")]
-    public static void CreateScriptableObjects()
+    static void CreateScriptableObjects()
     {
         EnsureFolders();
 
@@ -47,11 +75,15 @@ public static class ProjectSetup
 
         // Units                        type                              name                    hp     dmg  range  atkSpd  spd  metal  nrg
         // Move speed values are 1/4 of the original design (0.625, 0.375, 0.625, 1.0, 0.375)
-        CreateUnitData(EntityType.Soldier,             "Soldier",              50f,  10f, 1.5f, 2.0f, 0.625f, 20f,  10f);
-        CreateUnitData(EntityType.HeavyGunner,         "HeavyGunner",         120f,  18f, 4.0f, 1.5f, 0.375f, 50f,  25f);
-        CreateUnitData(EntityType.ExplosiveSpecialist, "ExplosiveSpecialist", 100f,  35f, 3.5f, 0.5f, 0.625f, 50f,  25f);
-        CreateUnitData(EntityType.Hovercraft,          "Hovercraft",          200f,  25f, 2.5f, 1.0f, 1.0f,   100f, 50f);
-        CreateUnitData(EntityType.HeavyTank,           "HeavyTank",           350f,  40f, 4.5f, 0.5f, 0.375f, 100f, 50f);
+        // Metal/energy costs raised so Soldier (Barracks) no longer out-cycles
+        // every other production building for the shared metal pool — it was
+        // cheap and fast enough on both axes to monopolize available metal,
+        // starving buildings with higher per-unit costs.
+        CreateUnitData(EntityType.Soldier,             "Soldier",              50f,  10f, 1.5f, 2.0f, 0.625f, 35f,  30f);
+        CreateUnitData(EntityType.HeavyGunner,         "HeavyGunner",         120f,  18f, 4.0f, 1.5f, 0.375f, 55f,  35f);
+        CreateUnitData(EntityType.ExplosiveSpecialist, "ExplosiveSpecialist", 100f,  35f, 3.5f, 0.5f, 0.625f, 55f,  35f);
+        CreateUnitData(EntityType.Hovercraft,          "Hovercraft",          200f,  25f, 2.5f, 1.0f, 1.0f,   110f, 65f);
+        CreateUnitData(EntityType.HeavyTank,           "HeavyTank",           350f,  40f, 4.5f, 0.5f, 0.375f, 110f, 65f);
 
         // Production buildings         name              slot          metalBuild  nrgBuild  buffer  unitSO name
         CreateProductionBuildingData("Barracks",    new Vector2Int(1,1), 30f, 20f,  60f, "Soldier");
@@ -108,15 +140,14 @@ public static class ProjectSetup
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-        Debug.Log("[BeyondAllRoyal] ScriptableObjects created. Run step 2 to create prefabs.");
+        Debug.Log("[BeyondAllRoyal] ScriptableObjects created.");
     }
 
     // -------------------------------------------------------------------------
-    // Step 2
+    // Step 1b — Prefabs
     // -------------------------------------------------------------------------
 
-    [MenuItem("BeyondAllRoyal/2 - Create Prefabs (run step 1 first)")]
-    public static void CreatePrefabs()
+    static void CreatePrefabs()
     {
         EnsureFolders();
         var sprite = GetOrCreatePlaceholderSprite();
@@ -156,12 +187,11 @@ public static class ProjectSetup
     }
 
     // -------------------------------------------------------------------------
-    // Step 3 — assumes gen_sprites.py (or equivalent) has already written the
-    // PNGs to Assets/Sprites/Units and Assets/Sprites/Buildings.
+    // Step 1c — Sprites. Assumes gen_sprites.py (or equivalent) has already
+    // written the PNGs to Assets/Sprites/Units and Assets/Sprites/Buildings.
     // -------------------------------------------------------------------------
 
-    [MenuItem("BeyondAllRoyal/3 - Import Sprites and Assign to Data + Prefabs")]
-    public static void ImportAndAssignSprites()
+    static void ImportAndAssignSprites()
     {
         AssetDatabase.Refresh();
 
@@ -246,13 +276,103 @@ public static class ProjectSetup
     }
 
     // -------------------------------------------------------------------------
-    // Step 4 — wires each shop button's own Image component as its icon, for
-    // whichever BuildingShopPanel.ShopEntry slots don't already have one set.
-    // Run this in the scene that contains the BuildingShopPanel, then save the scene.
+    // Step 2a — creates one button per player-placeable building type (skips any
+    // BuildingData already present in shopEntries) and appends a wired ShopEntry
+    // for each. Adds a GridLayoutGroup to the panel so buttons don't overlap.
+    // Requires BuildingShopPanel in the open scene.
     // -------------------------------------------------------------------------
 
-    [MenuItem("BeyondAllRoyal/4 - Auto-Wire Shop Icons (run in the scene with BuildingShopPanel)")]
-    public static void AutoWireShopIcons()
+    // Every BuildingNames entry except HQ — it's pre-placed by MapGrid, never player-built.
+    static string[] PlaceableBuildingNames => BuildingNames.Where(n => n != "HQ").ToArray();
+
+    static void PopulateShopPanel()
+    {
+        var panel = Object.FindAnyObjectByType<BuildingShopPanel>(FindObjectsInactive.Include);
+        if (panel == null)
+        {
+            Debug.LogWarning("[BeyondAllRoyal] No BuildingShopPanel found in the open scene.");
+            return;
+        }
+
+        if (panel.GetComponent<GridLayoutGroup>() == null)
+        {
+            var grid = panel.gameObject.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(100f, 100f);
+            grid.spacing  = new Vector2(8f, 8f);
+        }
+
+        var so = new SerializedObject(panel);
+        var entries = so.FindProperty("shopEntries");
+
+        var existingData = new HashSet<Object>();
+        for (int i = 0; i < entries.arraySize; i++)
+        {
+            var d = entries.GetArrayElementAtIndex(i).FindPropertyRelative("data").objectReferenceValue;
+            if (d != null) existingData.Add(d);
+        }
+
+        int added = 0;
+        foreach (var name in PlaceableBuildingNames)
+        {
+            var data   = AssetDatabase.LoadAssetAtPath<BuildingData>($"{SOBuildings}/{name}.asset");
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabBuildings}/{name}.prefab");
+            if (data == null || prefab == null || existingData.Contains(data)) continue;
+
+            var buttonGO = DefaultControls.CreateButton(new DefaultControls.Resources());
+            buttonGO.name = $"{name}Button";
+            buttonGO.transform.SetParent(panel.transform, false);
+
+            // The default label child just says "Button" and would sit on top of
+            // the building icon (the button's own Image, set by BuildingShopPanel
+            // at runtime) — replace it with a small cost label instead.
+            var defaultLabel = buttonGO.transform.Find("Text (Legacy)");
+            if (defaultLabel != null) Object.DestroyImmediate(defaultLabel.gameObject);
+
+            var labelGO = new GameObject("CostLabel", typeof(RectTransform));
+            labelGO.transform.SetParent(buttonGO.transform, false);
+            var labelRect = labelGO.GetComponent<RectTransform>();
+            labelRect.anchorMin = new Vector2(0f, 0f);
+            labelRect.anchorMax = new Vector2(1f, 0.3f);
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            var label = labelGO.AddComponent<TextMeshProUGUI>();
+            label.alignment = TextAlignmentOptions.Center;
+            label.fontSize  = 14f;
+            label.text      = $"{data.metalCostToBuild:F0}";
+
+            int idx = entries.arraySize;
+            entries.arraySize++;
+            var entry = entries.GetArrayElementAtIndex(idx);
+            entry.FindPropertyRelative("data").objectReferenceValue      = data;
+            entry.FindPropertyRelative("prefab").objectReferenceValue    = prefab;
+            entry.FindPropertyRelative("button").objectReferenceValue    = buttonGO.GetComponent<Button>();
+            entry.FindPropertyRelative("icon").objectReferenceValue      = buttonGO.GetComponent<Image>();
+            entry.FindPropertyRelative("costLabel").objectReferenceValue = label;
+
+            added++;
+        }
+
+        so.ApplyModifiedProperties();
+
+        if (added > 0)
+        {
+            EditorSceneManager.MarkSceneDirty(panel.gameObject.scene);
+            Debug.Log($"[BeyondAllRoyal] Added {added} shop button(s). Icons populate from spriteFrameA at runtime. " +
+                      "Resize the panel/grid cells as needed, then save the scene.");
+        }
+        else
+        {
+            Debug.Log("[BeyondAllRoyal] Nothing to add — every placeable building already has a shop entry.");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 2b — backfills the icon on any ShopEntry that doesn't have one yet
+    // (PopulateShopPanel already sets it for entries it creates; this covers
+    // entries added by hand). Requires BuildingShopPanel in the open scene.
+    // -------------------------------------------------------------------------
+
+    static void AutoWireShopIcons()
     {
         var panel = Object.FindAnyObjectByType<BuildingShopPanel>(FindObjectsInactive.Include);
         if (panel == null)
@@ -295,13 +415,12 @@ public static class ProjectSetup
     }
 
     // -------------------------------------------------------------------------
-    // Step 5 — builds a default (unstyled) Slider + label under the same Canvas
+    // Step 2c — builds a default (unstyled) Slider + label under the same Canvas
     // as HUD and wires them into HUD.minimumReserveSlider/minimumReserveLabel.
-    // Run this in the scene that contains HUD, then reposition/style and save.
+    // Requires HUD in the open scene.
     // -------------------------------------------------------------------------
 
-    [MenuItem("BeyondAllRoyal/5 - Create Minimum Reserve Slider (run in the scene with HUD)")]
-    public static void CreateMinimumReserveSlider()
+    static void CreateMinimumReserveSlider()
     {
         var hud = Object.FindAnyObjectByType<HUD>(FindObjectsInactive.Include);
         if (hud == null)
@@ -362,6 +481,94 @@ public static class ProjectSetup
 
         EditorSceneManager.MarkSceneDirty(hud.gameObject.scene);
         Debug.Log("[BeyondAllRoyal] Created and wired the minimum-reserve slider (unstyled placeholder). " +
+                  "Reposition/style it as needed, then save the scene.");
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 2d — adds a Cancel button as a child of HUD.placementInfoPanel, wired
+    // to HUD.cancelPlacementButton. Touch devices have no Escape key or right
+    // click, so BuildingPlacer.CancelPlacement() was otherwise unreachable on
+    // mobile. Requires HUD (with placementInfoPanel assigned) in the open scene.
+    // -------------------------------------------------------------------------
+
+    static void CreateCancelPlacementButton()
+    {
+        CreateHudChildButton("cancelPlacementButton", "placementInfoPanel", "CancelPlacementButton", "Cancel");
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 2e — adds a Demolish button as a child of HUD.buildingInfoPanel, wired
+    // to HUD.demolishButton. Lets the player free up a slot by voluntarily
+    // destroying a building they own (HUD.OnDemolishClicked excludes the HQ, and
+    // HQ.Demolish() refuses too, as a second line of defense).
+    // Requires HUD (with buildingInfoPanel assigned) in the open scene.
+    // -------------------------------------------------------------------------
+
+    static void CreateDemolishButton()
+    {
+        CreateHudChildButton("demolishButton", "buildingInfoPanel", "DemolishButton", "Demolish");
+    }
+
+    // Shared by CreateCancelPlacementButton/CreateDemolishButton: creates a
+    // button as a child of the GameObject referenced by HUD's parentFieldName,
+    // wires it into HUD's buttonFieldName, and skips if already assigned.
+    static void CreateHudChildButton(string buttonFieldName, string parentFieldName, string goName, string label)
+    {
+        var hud = Object.FindAnyObjectByType<HUD>(FindObjectsInactive.Include);
+        if (hud == null)
+        {
+            Debug.LogWarning("[BeyondAllRoyal] No HUD found in the open scene.");
+            return;
+        }
+
+        var so = new SerializedObject(hud);
+        var buttonProp = so.FindProperty(buttonFieldName);
+
+        if (buttonProp.objectReferenceValue != null)
+        {
+            Debug.Log($"[BeyondAllRoyal] HUD already has a {buttonFieldName} assigned — skipping.");
+            return;
+        }
+
+        var panel = so.FindProperty(parentFieldName).objectReferenceValue as GameObject;
+        if (panel == null)
+        {
+            Debug.LogWarning($"[BeyondAllRoyal] HUD.{parentFieldName} isn't assigned — can't parent the {goName} under it.");
+            return;
+        }
+
+        var buttonGO = DefaultControls.CreateButton(new DefaultControls.Resources());
+        buttonGO.name = goName;
+        buttonGO.transform.SetParent(panel.transform, false);
+
+        var rect = buttonGO.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot     = new Vector2(1f, 0f);
+        rect.anchoredPosition = new Vector2(-10f, 10f);
+        rect.sizeDelta = new Vector2(90f, 30f);
+
+        // The default label child is legacy Text ("Button") — replace with TMP.
+        var legacyText = buttonGO.transform.Find("Text (Legacy)");
+        if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+
+        var labelGO = new GameObject("Label", typeof(RectTransform));
+        labelGO.transform.SetParent(buttonGO.transform, false);
+        var labelRect = labelGO.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        var labelText = labelGO.AddComponent<TextMeshProUGUI>();
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.fontSize  = 14f;
+        labelText.text      = label;
+
+        buttonProp.objectReferenceValue = buttonGO.GetComponent<Button>();
+        so.ApplyModifiedProperties();
+
+        EditorSceneManager.MarkSceneDirty(hud.gameObject.scene);
+        Debug.Log($"[BeyondAllRoyal] Created and wired a {label} button under {parentFieldName}. " +
                   "Reposition/style it as needed, then save the scene.");
     }
 

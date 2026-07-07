@@ -49,7 +49,7 @@ public class BuildingPlacer : MonoBehaviour
         }
 
         Vector3    worldPos = ScreenToWorld(InputHelper.TapPosition());
-        Vector2Int gridPos  = MapGrid.Instance.WorldToGridPosition(worldPos, Owner.Player);
+        Vector2Int gridPos  = MapGrid.Instance.GetPlacementOrigin(worldPos, Owner.Player, selectedData.slotSize);
         bool       valid    = MapGrid.Instance.CanPlace(gridPos, selectedData.slotSize, Owner.Player);
         Vector3    snapPos  = MapGrid.Instance.GetBuildingCenterPosition(gridPos, selectedData.slotSize);
 
