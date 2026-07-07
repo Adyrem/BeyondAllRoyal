@@ -31,8 +31,12 @@ public class HUD : MonoBehaviour
     [Header("Selected building info")]
     [SerializeField] private GameObject      buildingInfoPanel;
     [SerializeField] private TextMeshProUGUI buildingInfoName;
-    [SerializeField] private UnityEngine.UI.Slider energyBar;
+    [SerializeField] private Slider          energyBar;
     [SerializeField] private TextMeshProUGUI energyLabel;
+
+    [Header("Minimum metal reserve")]
+    [SerializeField] private Slider          minimumReserveSlider;
+    [SerializeField] private TextMeshProUGUI minimumReserveLabel;
 
     private ProductionBuilding selectedProduction;
     private Building           selectedBuilding;
@@ -50,12 +54,19 @@ public class HUD : MonoBehaviour
 
         toggleProductionButton?.onClick.AddListener(OnToggleProduction);
         shopToggleButton?.onClick.AddListener(ToggleShop);
+        minimumReserveSlider?.onValueChanged.AddListener(OnMinimumReserveChanged);
     }
 
     private void Start()
     {
         if (BuildingSelector.Instance != null)
             BuildingSelector.Instance.OnSelectionChanged += OnBuildingSelected;
+
+        if (minimumReserveSlider != null && ResourceManager.Instance != null)
+        {
+            minimumReserveSlider.SetValueWithoutNotify(ResourceManager.Instance.MinimumMetalReserve);
+            UpdateMinimumReserveLabel(ResourceManager.Instance.MinimumMetalReserve);
+        }
     }
 
     private void OnDestroy()
@@ -137,5 +148,21 @@ public class HUD : MonoBehaviour
         shopPanel.gameObject.SetActive(show);
         if (!show)
             BuildingPlacer.Instance?.CancelPlacement();
+    }
+
+    // -------------------------------------------------------------------------
+    // Minimum metal reserve
+    // -------------------------------------------------------------------------
+
+    private void OnMinimumReserveChanged(float value)
+    {
+        ResourceManager.Instance.SetMinimumMetalReserve(value);
+        UpdateMinimumReserveLabel(value);
+    }
+
+    private void UpdateMinimumReserveLabel(float value)
+    {
+        if (minimumReserveLabel != null)
+            minimumReserveLabel.text = $"Min Reserve: {value:F0}";
     }
 }

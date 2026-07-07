@@ -18,7 +18,7 @@ MonoBehaviour:
   damage: 25
   attackRange: 2.5
   attacksPerSecond: 1
-  moveSpeed: 4
+  moveSpeed: 1
   metalCostPerUnit: 100
   energyCostPerUnit: 50
   prefab: {fileID: 5083719467118083729, guid: 6c5f78d17db01cbe4be93a209a5be4a0, type: 3}

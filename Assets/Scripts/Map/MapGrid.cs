@@ -194,12 +194,15 @@ public class MapGrid : MonoBehaviour
         slots.TryGetValue(gridPos, out var s) ? s.transform.position : Vector3.zero;
 
     // Finds the first unoccupied origin that fits the given size for the given owner.
+    // Rows near the HQ (the back of the owner's row range) are searched first, so
+    // auto-placed buildings fill in behind existing structures instead of exposing
+    // themselves at the front line closest to the enemy.
     public bool TryGetFreeSlot(Vector2Int size, Owner owner, out Vector2Int origin)
     {
         int rowStart = owner == Owner.Player ? 0            : layout.rows;
         int rowEnd   = owner == Owner.Player ? layout.rows  : layout.rows * 2;
 
-        for (int row = rowStart; row <= rowEnd - size.y; row++)
+        for (int row = rowEnd - size.y; row >= rowStart; row--)
         for (int col = 0; col <= layout.columns - size.x; col++)
         {
             var candidate = new Vector2Int(col, row);

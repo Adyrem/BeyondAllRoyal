@@ -16,13 +16,35 @@ public class UnitAI : MonoBehaviour
         if (GameManager.Instance.CurrentState != GameState.InGame) return;
 
         attackCooldown -= Time.deltaTime;
-        currentUnitTarget = FindNearestEnemyUnit();
 
-        if (currentUnitTarget != null)
+        var nearestBuilding = FindNearestEnemyBuilding();
+        var nearestUnit     = FindNearestEnemyUnit();
+
+        bool buildingInRange = nearestBuilding != null && InRange(nearestBuilding.transform.position);
+        bool unitInRange     = nearestUnit != null && InRange(nearestUnit.transform.position);
+
+        // Priority: buildings in range > units in range > buildings out of range > units out of range.
+        if (buildingInRange)
+        {
+            HandleBuildingAssault(nearestBuilding);
+        }
+        else if (unitInRange)
+        {
+            currentUnitTarget = nearestUnit;
             HandleUnitCombat();
-        else
-            HandleBuildingAssault();
+        }
+        else if (nearestBuilding != null)
+        {
+            HandleBuildingAssault(nearestBuilding);
+        }
+        else if (nearestUnit != null)
+        {
+            currentUnitTarget = nearestUnit;
+            HandleUnitCombat();
+        }
     }
+
+    private bool InRange(Vector3 pos) => Vector2.Distance(transform.position, pos) <= unit.AttackRange;
 
     // -------------------------------------------------------------------------
     // Combat handlers
@@ -41,14 +63,8 @@ public class UnitAI : MonoBehaviour
         }
     }
 
-    // When no enemy units are visible, target the nearest enemy building.
-    // Units will destroy towers and production buildings on the way to the HQ;
-    // the HQ is naturally the last building standing.
-    private void HandleBuildingAssault()
+    private void HandleBuildingAssault(Building target)
     {
-        var target = FindNearestEnemyBuilding();
-        if (target == null) return;
-
         float dist = Vector2.Distance(transform.position, target.transform.position);
         if (dist <= unit.AttackRange)
         {
@@ -65,6 +81,7 @@ public class UnitAI : MonoBehaviour
         float multiplier = CounterSystem.GetDamageMultiplier(unit.EntityType, target.EntityType);
         target.TakeDamage(unit.Damage * multiplier);
         unit.FlashShootingSprite();
+        AttackBeamSpawner.Spawn(transform.position, target.transform.position, unit.Owner);
         attackCooldown = 1f / unit.AttacksPerSecond;
     }
 
@@ -76,6 +93,7 @@ public class UnitAI : MonoBehaviour
             damage *= CounterSystem.GetDamageMultiplier(unit.EntityType, entityType.Value);
         building.TakeDamage(damage);
         unit.FlashShootingSprite();
+        AttackBeamSpawner.Spawn(transform.position, building.transform.position, unit.Owner);
         attackCooldown = 1f / unit.AttacksPerSecond;
     }
 

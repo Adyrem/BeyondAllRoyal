@@ -25,3 +25,7 @@ MonoBehaviour:
   metalPerSecond: 2
   injectionRatePerBuilding: 5
   injectionRange: 8
+  attackDamage: 20
+  attackRange: 6
+  attacksPerSecond: 5
+  energyCostPerShot: 10

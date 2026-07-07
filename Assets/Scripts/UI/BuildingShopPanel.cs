@@ -37,9 +37,15 @@ public class BuildingShopPanel : MonoBehaviour
             entry.button.onClick.AddListener(() =>
             {
                 if (BuildingPlacer.Instance.IsPlacing)
+                {
                     BuildingPlacer.Instance.CancelPlacement();
+                }
                 else
+                {
                     BuildingPlacer.Instance.SelectBuilding(d, p);
+                    // Close the shop so it doesn't block the view while placing on the map.
+                    gameObject.SetActive(false);
+                }
             });
         }
     }

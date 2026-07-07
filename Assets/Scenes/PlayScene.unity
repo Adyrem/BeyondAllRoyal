@@ -1100,6 +1100,7 @@ MonoBehaviour:
   - data: {fileID: 11400000, guid: 3e2a73494bbf2818dab7609261d9db83, type: 2}
     prefab: {fileID: 5742146230616505966, guid: 407ca9c727565368db2b6a5306e24c70, type: 3}
     button: {fileID: 168876205}
+    icon: {fileID: 168876206}
     costLabel: {fileID: 1256726499}
 --- !u!1 &519420028
 GameObject:
@@ -1351,8 +1352,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5c5f3ba90d42266779251f8610f0c4d5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ResourceManager
-  playerMetalPerSecond: 100
-  npcMetalPerSecond: 100
+  playerMetalPerSecond: 1
+  npcMetalPerSecond: 1
 --- !u!4 &624555868
 Transform:
   m_ObjectHideFlags: 0
@@ -1821,6 +1822,13 @@ MonoBehaviour:
   - data: {fileID: 11400000, guid: 004759ed675be258abdab96b3353fc53, type: 2}
     prefab: {fileID: 7221286056993148746, guid: 35a3f3dab7586cadd95abd3dde5ee0e1, type: 3}
   placementCheckInterval: 3
+  economyBuildingTypes:
+  - data: {fileID: 11400000, guid: c60a0cc7a723a82bab505870b9dfc474, type: 2}
+    prefab: {fileID: 4424857364647358145, guid: 536183810a3ab0d97bc97b6dc1927bf7, type: 3}
+  - data: {fileID: 11400000, guid: aed6c52d2c8889202bde1977ae284675, type: 2}
+    prefab: {fileID: 7497118946661570390, guid: b3e77f4a1bda55a5cb2497d3838047e8, type: 3}
+  economyBuildChance: 0.25
+  metalReserveMultiplier: 1.1
 --- !u!4 &893398151
 Transform:
   m_ObjectHideFlags: 0

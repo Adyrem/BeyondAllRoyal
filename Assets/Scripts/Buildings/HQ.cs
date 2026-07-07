@@ -3,6 +3,8 @@ using UnityEngine;
 public class HQ : Building
 {
     private HQData hqData;
+    private float attackCooldown;
+    private Unit currentTarget;
 
     protected override void Awake()
     {
@@ -22,6 +24,20 @@ public class HQ : Building
 
         ResourceManager.Instance.AddMetal(Owner, hqData.metalPerSecond * Time.deltaTime);
         InjectEnergyIntoNearby(hqData.injectionRatePerBuilding, hqData.injectionRange);
+
+        // The HQ defends itself with a flat-damage attack (no counter multiplier —
+        // it isn't part of the EntityType counter chart) so a quick rush can't end
+        // the game before the player gets any real defenses up.
+        TickAutoAttack(hqData.attackRange, ref currentTarget, ref attackCooldown, TryFire);
+    }
+
+    private void TryFire()
+    {
+        if (!TryConsumeEnergy(hqData.energyCostPerShot)) return;
+
+        currentTarget.TakeDamage(hqData.attackDamage);
+        AttackBeamSpawner.Spawn(transform.position, currentTarget.transform.position, Owner);
+        attackCooldown = 1f / hqData.attacksPerSecond;
     }
 
     protected override void OnDestroyed()

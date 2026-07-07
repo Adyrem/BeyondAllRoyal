@@ -1,6 +1,9 @@
 using System.IO;
+using TMPro;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 
 // Run from the Unity menu: BeyondAllRoyal → 1 - Create ScriptableObjects, then → 2 - Create Prefabs
 public static class ProjectSetup
@@ -43,11 +46,12 @@ public static class ProjectSetup
         EditorUtility.SetDirty(settings);
 
         // Units                        type                              name                    hp     dmg  range  atkSpd  spd  metal  nrg
-        CreateUnitData(EntityType.Soldier,             "Soldier",              50f,  10f, 1.5f, 2.0f, 2.5f, 20f,  10f);
-        CreateUnitData(EntityType.HeavyGunner,         "HeavyGunner",         120f,  18f, 4.0f, 1.5f, 1.5f, 50f,  25f);
-        CreateUnitData(EntityType.ExplosiveSpecialist, "ExplosiveSpecialist", 100f,  35f, 3.5f, 0.5f, 2.5f, 50f,  25f);
-        CreateUnitData(EntityType.Hovercraft,          "Hovercraft",          200f,  25f, 2.5f, 1.0f, 4.0f, 100f, 50f);
-        CreateUnitData(EntityType.HeavyTank,           "HeavyTank",           350f,  40f, 4.5f, 0.5f, 1.5f, 100f, 50f);
+        // Move speed values are 1/4 of the original design (0.625, 0.375, 0.625, 1.0, 0.375)
+        CreateUnitData(EntityType.Soldier,             "Soldier",              50f,  10f, 1.5f, 2.0f, 0.625f, 20f,  10f);
+        CreateUnitData(EntityType.HeavyGunner,         "HeavyGunner",         120f,  18f, 4.0f, 1.5f, 0.375f, 50f,  25f);
+        CreateUnitData(EntityType.ExplosiveSpecialist, "ExplosiveSpecialist", 100f,  35f, 3.5f, 0.5f, 0.625f, 50f,  25f);
+        CreateUnitData(EntityType.Hovercraft,          "Hovercraft",          200f,  25f, 2.5f, 1.0f, 1.0f,   100f, 50f);
+        CreateUnitData(EntityType.HeavyTank,           "HeavyTank",           350f,  40f, 4.5f, 0.5f, 0.375f, 100f, 50f);
 
         // Production buildings         name              slot          metalBuild  nrgBuild  buffer  unitSO name
         CreateProductionBuildingData("Barracks",    new Vector2Int(1,1), 30f, 20f,  60f, "Soldier");
@@ -94,6 +98,10 @@ public static class ProjectSetup
         hq.metalPerSecond              = 2f;
         hq.injectionRatePerBuilding    = 5f;
         hq.injectionRange              = 8f;
+        hq.attackDamage                = 20f;
+        hq.attackRange                 = 6f;
+        hq.attacksPerSecond            = 5f;
+        hq.energyCostPerShot           = 10f;
         EditorUtility.SetDirty(hq);
 
         CreateDefaultMapLayout();
@@ -235,6 +243,126 @@ public static class ProjectSetup
         importer.SaveAndReimport();
 
         return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 4 — wires each shop button's own Image component as its icon, for
+    // whichever BuildingShopPanel.ShopEntry slots don't already have one set.
+    // Run this in the scene that contains the BuildingShopPanel, then save the scene.
+    // -------------------------------------------------------------------------
+
+    [MenuItem("BeyondAllRoyal/4 - Auto-Wire Shop Icons (run in the scene with BuildingShopPanel)")]
+    public static void AutoWireShopIcons()
+    {
+        var panel = Object.FindAnyObjectByType<BuildingShopPanel>(FindObjectsInactive.Include);
+        if (panel == null)
+        {
+            Debug.LogWarning("[BeyondAllRoyal] No BuildingShopPanel found in the open scene.");
+            return;
+        }
+
+        var so = new SerializedObject(panel);
+        var entries = so.FindProperty("shopEntries");
+        int wired = 0, skipped = 0;
+
+        for (int i = 0; i < entries.arraySize; i++)
+        {
+            var entry = entries.GetArrayElementAtIndex(i);
+            var iconProp = entry.FindPropertyRelative("icon");
+
+            if (iconProp.objectReferenceValue != null) continue; // don't clobber a manual choice
+
+            var button = entry.FindPropertyRelative("button").objectReferenceValue as Button;
+            var image  = button != null ? button.GetComponent<Image>() : null;
+            if (image == null) { skipped++; continue; }
+
+            iconProp.objectReferenceValue = image;
+            wired++;
+        }
+
+        so.ApplyModifiedProperties();
+
+        if (wired > 0)
+        {
+            EditorSceneManager.MarkSceneDirty(panel.gameObject.scene);
+            Debug.Log($"[BeyondAllRoyal] Wired {wired} shop icon(s) to their button's own Image component. " +
+                      $"Save the scene (Ctrl+S) to persist this.{(skipped > 0 ? $" ({skipped} entries had no button/Image and were skipped.)" : "")}");
+        }
+        else
+        {
+            Debug.Log("[BeyondAllRoyal] Nothing to wire — icons already assigned, or entries have no button with an Image component.");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 5 — builds a default (unstyled) Slider + label under the same Canvas
+    // as HUD and wires them into HUD.minimumReserveSlider/minimumReserveLabel.
+    // Run this in the scene that contains HUD, then reposition/style and save.
+    // -------------------------------------------------------------------------
+
+    [MenuItem("BeyondAllRoyal/5 - Create Minimum Reserve Slider (run in the scene with HUD)")]
+    public static void CreateMinimumReserveSlider()
+    {
+        var hud = Object.FindAnyObjectByType<HUD>(FindObjectsInactive.Include);
+        if (hud == null)
+        {
+            Debug.LogWarning("[BeyondAllRoyal] No HUD found in the open scene.");
+            return;
+        }
+
+        var so = new SerializedObject(hud);
+        var sliderProp = so.FindProperty("minimumReserveSlider");
+        var labelProp  = so.FindProperty("minimumReserveLabel");
+
+        if (sliderProp.objectReferenceValue != null)
+        {
+            Debug.Log("[BeyondAllRoyal] HUD already has a minimumReserveSlider assigned — skipping.");
+            return;
+        }
+
+        var canvas = hud.GetComponentInParent<Canvas>();
+        if (canvas == null) canvas = Object.FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            Debug.LogWarning("[BeyondAllRoyal] No Canvas found to parent the slider under.");
+            return;
+        }
+
+        var sliderGO = DefaultControls.CreateSlider(new DefaultControls.Resources());
+        sliderGO.name = "MinimumReserveSlider";
+        sliderGO.transform.SetParent(canvas.transform, false);
+
+        var rect = sliderGO.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot     = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(20f, -80f);
+        rect.sizeDelta = new Vector2(160f, 20f);
+
+        var slider = sliderGO.GetComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 500f;
+        slider.value    = 50f;
+
+        var labelGO = new GameObject("MinimumReserveLabel", typeof(RectTransform));
+        labelGO.transform.SetParent(canvas.transform, false);
+        var labelRect = labelGO.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0f, 1f);
+        labelRect.anchorMax = new Vector2(0f, 1f);
+        labelRect.pivot     = new Vector2(0f, 1f);
+        labelRect.anchoredPosition = new Vector2(190f, -80f);
+        labelRect.sizeDelta = new Vector2(140f, 20f);
+        var label = labelGO.AddComponent<TextMeshProUGUI>();
+        label.fontSize = 14f;
+        label.text = "Min Reserve: 50";
+
+        sliderProp.objectReferenceValue = slider;
+        labelProp.objectReferenceValue  = label;
+        so.ApplyModifiedProperties();
+
+        EditorSceneManager.MarkSceneDirty(hud.gameObject.scene);
+        Debug.Log("[BeyondAllRoyal] Created and wired the minimum-reserve slider (unstyled placeholder). " +
+                  "Reposition/style it as needed, then save the scene.");
     }
 
     // -------------------------------------------------------------------------
@@ -457,8 +585,7 @@ public static class ProjectSetup
 
     static void AssignUnitPrefabsToData()
     {
-        string[] names = { "Soldier", "HeavyGunner", "ExplosiveSpecialist", "Hovercraft", "HeavyTank" };
-        foreach (var name in names)
+        foreach (var name in UnitNames)
         {
             var data   = AssetDatabase.LoadAssetAtPath<UnitData>($"{SOUnits}/{name}.asset");
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabUnits}/{name}.prefab");

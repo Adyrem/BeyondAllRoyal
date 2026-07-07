@@ -9,6 +9,7 @@ public class ProductionBuilding : Building
     private bool metalReserved;
 
     public bool IsProducing { get; private set; } = true;
+    public float UnitMetalCost => productionData.unitToProduced.metalCostPerUnit;
 
     public void SetProducing(bool producing) => IsProducing = producing;
 
@@ -29,7 +30,7 @@ public class ProductionBuilding : Building
     {
         if (!metalReserved)
         {
-            if (!ResourceManager.Instance.TrySpendMetal(Owner, productionData.unitToProduced.metalCostPerUnit))
+            if (!ResourceManager.Instance.TrySpendMetalAboveReserve(Owner, productionData.unitToProduced.metalCostPerUnit))
                 return;
             metalReserved = true;
         }

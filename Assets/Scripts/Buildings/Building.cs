@@ -122,6 +122,37 @@ public class Building : MonoBehaviour
         }
     }
 
+    // Shared by DefenseTower and HQ: finds the nearest enemy unit within range.
+    protected Unit FindNearestEnemyUnitInRange(float range)
+    {
+        Unit nearest = null;
+        float nearestDist = float.MaxValue;
+
+        foreach (var u in UnitRegistry.All)
+        {
+            if (u.Owner == Owner) continue;
+            float dist = Vector2.Distance(transform.position, u.transform.position);
+            if (dist <= range && dist < nearestDist) { nearest = u; nearestDist = dist; }
+        }
+        return nearest;
+    }
+
+    protected bool IsWithinRange(Vector3 pos, float range) =>
+        Vector2.Distance(transform.position, pos) <= range;
+
+    // Shared by DefenseTower and HQ: re-targets the nearest enemy unit in range
+    // if needed, then invokes fire() once the cooldown allows.
+    protected void TickAutoAttack(float range, ref Unit currentTarget, ref float attackCooldown, System.Action fire)
+    {
+        attackCooldown -= Time.deltaTime;
+
+        if (currentTarget == null || !IsWithinRange(currentTarget.transform.position, range))
+            currentTarget = FindNearestEnemyUnitInRange(range);
+
+        if (currentTarget != null && IsWithinRange(currentTarget.transform.position, range) && attackCooldown <= 0f)
+            fire();
+    }
+
     // Validates that the serialized data field is the expected subtype.
     // Disables the component and logs an error if the cast fails.
     protected T RequireData<T>() where T : BuildingData

@@ -19,13 +19,7 @@ public class DefenseTower : Building
         base.Update();
         if (!IsConstructed || !IsGameActive) return;
 
-        attackCooldown -= Time.deltaTime;
-
-        if (currentTarget == null || !InRange(currentTarget.transform.position))
-            currentTarget = FindNearestEnemyUnit();
-
-        if (currentTarget != null && InRange(currentTarget.transform.position) && attackCooldown <= 0f)
-            TryFire();
+        TickAutoAttack(towerData.attackRange, ref currentTarget, ref attackCooldown, TryFire);
     }
 
     private void TryFire()
@@ -34,27 +28,7 @@ public class DefenseTower : Building
 
         float multiplier = CounterSystem.GetDamageMultiplier(towerData.entityType, currentTarget.EntityType);
         currentTarget.TakeDamage(towerData.damage * multiplier);
+        AttackBeamSpawner.Spawn(transform.position, currentTarget.transform.position, Owner);
         attackCooldown = 1f / towerData.attacksPerSecond;
-    }
-
-    private bool InRange(Vector3 pos) =>
-        Vector2.Distance(transform.position, pos) <= towerData.attackRange;
-
-    private Unit FindNearestEnemyUnit()
-    {
-        Unit nearest = null;
-        float nearestDist = float.MaxValue;
-
-        foreach (var u in UnitRegistry.All)
-        {
-            if (u.Owner == Owner) continue;
-            float dist = Vector2.Distance(transform.position, u.transform.position);
-            if (dist <= towerData.attackRange && dist < nearestDist)
-            {
-                nearest = u;
-                nearestDist = dist;
-            }
-        }
-        return nearest;
     }
 }
