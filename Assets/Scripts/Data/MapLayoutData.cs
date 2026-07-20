@@ -7,7 +7,7 @@ public class MapLayoutData : ScriptableObject
 {
     public string layoutName;
     public int columns = 8;
-    public int rows    = 5;
+    public int rows    = 8;
 
     [Range(0.01f, 0.49f)]
     [Tooltip("How close to screen centre the nearest building row appears (fraction of half-height)")]

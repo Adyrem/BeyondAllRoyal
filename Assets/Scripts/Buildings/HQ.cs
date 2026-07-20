@@ -12,11 +12,6 @@ public class HQ : Building
         hqData = RequireData<HQData>();
     }
 
-    private void Start()
-    {
-        GameManager.Instance.RegisterHQ(this, Owner);
-    }
-
     protected override void Update()
     {
         base.Update();

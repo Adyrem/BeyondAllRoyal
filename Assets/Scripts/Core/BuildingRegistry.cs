@@ -10,6 +10,8 @@ public static class BuildingRegistry
     public static void Register(Building b)   => buildings.Add(b);
     public static void Unregister(Building b) => buildings.Remove(b);
 
+    // Also called explicitly by GameManager.RestartGame() — a scene reload alone
+    // doesn't clear this, since it's a plain static list, not a scene object.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void Reset() => buildings.Clear();
+    public static void Reset() => buildings.Clear();
 }

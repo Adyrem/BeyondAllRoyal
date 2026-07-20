@@ -12,6 +12,7 @@ public class HUD : MonoBehaviour
     [Header("End screen")]
     [SerializeField] private GameObject      endScreen;
     [SerializeField] private TextMeshProUGUI endScreenText;
+    [SerializeField] private Button          restartButton;
 
     [Header("Building shop")]
     [SerializeField] private BuildingShopPanel shopPanel;
@@ -62,6 +63,7 @@ public class HUD : MonoBehaviour
         // accepts Escape/right-click for desktop testing.
         cancelPlacementButton?.onClick.AddListener(() => BuildingPlacer.Instance?.CancelPlacement());
         demolishButton?.onClick.AddListener(OnDemolishClicked);
+        restartButton?.onClick.AddListener(() => GameManager.Instance.RestartGame());
     }
 
     private void Start()
@@ -138,8 +140,11 @@ public class HUD : MonoBehaviour
 
         demolishButton?.gameObject.SetActive(hasBuilding && building is not HQ);
 
+        // Pausing production only makes sense for buildings that produce units —
+        // not the energy/metal generators (Tesla Tower, Metal Factory) or towers.
         bool hasProd = selectedProduction != null;
         productionPanel?.SetActive(hasProd);
+        toggleProductionButton?.gameObject.SetActive(hasProd);
         if (hasProd && productionBuildingName != null)
             productionBuildingName.text = building.Data.buildingName;
     }
@@ -162,8 +167,9 @@ public class HUD : MonoBehaviour
         if (shopPanel == null) return;
         bool show = !shopPanel.gameObject.activeSelf;
         shopPanel.gameObject.SetActive(show);
-        if (!show)
-            BuildingPlacer.Instance?.CancelPlacement();
+        // Opening the shop with a building already selected for placement would
+        // otherwise leave that ghost active underneath the menu; always clear it.
+        BuildingPlacer.Instance?.CancelPlacement();
     }
 
     // -------------------------------------------------------------------------

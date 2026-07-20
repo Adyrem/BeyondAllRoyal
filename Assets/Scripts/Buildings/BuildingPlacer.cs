@@ -48,14 +48,17 @@ public class BuildingPlacer : MonoBehaviour
             return;
         }
 
-        Vector3    worldPos = ScreenToWorld(InputHelper.TapPosition());
+        Vector3    worldPos = InputHelper.ScreenToWorld(cam, InputHelper.TapPosition());
         Vector2Int gridPos  = MapGrid.Instance.GetPlacementOrigin(worldPos, Owner.Player, selectedData.slotSize);
         bool       valid    = MapGrid.Instance.CanPlace(gridPos, selectedData.slotSize, Owner.Player);
         Vector3    snapPos  = MapGrid.Instance.GetBuildingCenterPosition(gridPos, selectedData.slotSize);
 
         ghost.UpdateState(snapPos, valid, selectedData);
 
-        if (valid && InputHelper.TapBegan())
+        // A tap that hits an interactive UI element (e.g. the Cancel button)
+        // must not also place a building at whatever world position happens to
+        // be underneath it.
+        if (valid && InputHelper.TapBegan() && !InputHelper.TapHitInteractiveUI())
             Place(gridPos);
     }
 
@@ -85,11 +88,5 @@ public class BuildingPlacer : MonoBehaviour
         }
 
         CancelPlacement();
-    }
-
-    private Vector3 ScreenToWorld(Vector2 screenPos)
-    {
-        var pos = new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z);
-        return cam.ScreenToWorldPoint(pos);
     }
 }

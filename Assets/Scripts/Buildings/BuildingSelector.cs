@@ -28,7 +28,14 @@ public class BuildingSelector : MonoBehaviour
         // Don't steal input from BuildingPlacer when it's active
         if (BuildingPlacer.Instance != null && BuildingPlacer.Instance.IsPlacing) return;
 
-        Vector3 worldPos = ScreenToWorld(InputHelper.TapPosition());
+        // A tap that hits an interactive UI element (e.g. the Demolish/Pause
+        // Production buttons) must not also be treated as a world-space tap, or
+        // this would immediately deselect the very building those buttons just
+        // acted on. A tap on a passive panel background still reaches here, so
+        // tapping near an open info panel to deselect still works.
+        if (InputHelper.TapHitInteractiveUI()) return;
+
+        Vector3 worldPos = InputHelper.ScreenToWorld(cam, InputHelper.TapPosition());
         var hit = Physics2D.OverlapPoint(worldPos);
 
         if (hit != null)
@@ -55,7 +62,4 @@ public class BuildingSelector : MonoBehaviour
         SelectedBuilding = null;
         OnSelectionChanged?.Invoke(null);
     }
-
-    private Vector3 ScreenToWorld(Vector2 screenPos) =>
-        cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
 }

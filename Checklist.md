@@ -16,10 +16,11 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 - [x] Two-player symmetric layout in scene
 - [x] Game state machine (Pregame → InGame → Victory/Defeat)
 - [x] Win condition: detect HQ destruction, trigger end state
+- [x] Restart the game after a win/loss — `GameManager.RestartGame()` reloads the scene (also explicitly clears `BuildingRegistry`/`UnitRegistry`, since those are plain static lists a scene reload wouldn't otherwise touch); wired to a Restart button on the end screen via `BeyondAllRoyal → 2 - Wire Scene`, which also registers the scene in Build Settings (required for the reload) — still needs to actually be run + scene saved
 
 ## Map System
 
-- [x] Building slot grid — each side has ~40 slots (8 cols × 8 rows; back 5 rows reserved for HQ)
+- [x] Building slot grid — each side has ~55 free slots (8 cols × 8 rows; back 3 rows reserved for HQ, now 3×3 instead of 5×5 — re-run `ProjectSetup` Step 1 to update the existing `HQData` asset and re-import the resized HQ sprite)
 - [x] Buildings can occupy variable slot counts
 - [x] Map layout loaded from ScriptableObject so layouts are swappable
 - [x] Default map: two-lane Clash Royale-style layout
@@ -46,9 +47,12 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 - [x] Metal Factory (passive metal income)
 - [x] Defensive towers drain energy buffer on each shot; stop firing when empty
 - [x] All buildings passively trickle-fill their own energy buffer
-- [x] Building placement on slots — player input (BuildingPlacer + BuildingGhost); ghost/placement footprint is centered on the tapped cell (`MapGrid.GetPlacementOrigin`) instead of treating it as the top-left corner, so it now visually spans exactly the cells that will be affected
+- [x] Building placement on slots — player input (BuildingPlacer + BuildingGhost); ghost/placement footprint is centered on the tapped cell (`MapGrid.GetPlacementOrigin`) instead of treating it as the top-left corner, so it now visually spans exactly the cells that will be affected; `BuildingGhost` forces a full-bleed solid sprite (not whatever "badge"-style icon sprite happened to be assigned in the Inspector, which had lots of transparent padding and made the ghost look tiny), forces `SpriteRenderer.drawMode = Simple`, and detaches from any scene parent on `Awake`, so its size can't be thrown off by scene-side Inspector state
+- [x] Opening the shop panel always cancels any in-progress building placement (`HUD.ToggleShop`), so a previously-selected building doesn't linger as a ghost underneath the menu
 - [x] NPC builds continuously from 3 types as metal allows
 - [x] Any building except HQ can be voluntarily demolished to free its slot (`Building.Demolish()`, HUD Demolish button shown when a non-HQ building is selected; `HQ.Demolish()` refuses as a second line of defense) — still needs `BeyondAllRoyal → 2 - Wire Scene` run + scene saved
+- [x] Fixed Demolish/Pause Production appearing not to work: `BuildingSelector`/`BuildingPlacer` never checked whether a tap landed on a UI element, so clicking those HUD buttons also registered as a world-space tap and immediately deselected the building right after the action ran. Both now skip via `InputHelper.TapHitInteractiveUI()` when the tap hit an interactive element (Button/Slider) specifically — an initial blanket `IsPointerOverGameObject()` check caused a regression where the info panel couldn't be closed at all for production buildings (they show an extra `productionPanel`, covering enough screen area that a "tap elsewhere to deselect" often landed on that panel's own background and got swallowed too); the precise Selectable-only check lets taps on passive panel backgrounds still reach the world
+- [x] Pause/Resume Production button is now explicitly hidden for anything that isn't a `ProductionBuilding` (Tesla Tower, Metal Factory, towers) instead of only relying on the parent panel's visibility
 
 ## Units
 
@@ -57,7 +61,7 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 - [x] Auto-attack when in range (no player input)
 - [x] Death / cleanup on health reaching zero
 - [x] 5 unit types defined (Soldier, Heavy Gunner, Explosive Specialist, Hovercraft, Heavy Tank); default move speeds set to 1/4 of the original design values — re-run `ProjectSetup` Step 1 to update existing `UnitData` assets
-- [x] Unit metal/energy costs raised across the board (Soldier the most) so Barracks can no longer out-cycle every other production building for the shared metal pool — re-run `ProjectSetup` Step 1 to update existing `UnitData` assets
+- [x] Unit metal costs lowered and energy costs (build time) raised a bit across the board — metal is the tighter bottleneck since it's a shared pool across all production buildings, energy isn't — re-run `ProjectSetup` Step 1 to update existing `UnitData` assets
 
 ## Counter System
 
@@ -82,13 +86,13 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 - [x] Building placement with ghost preview (BuildingPlacer + BuildingGhost)
 - [x] Tap placed building to select it (BuildingSelector)
 - [x] Production start/stop per selected building (HUD production panel)
-- [x] Win/lose screen (HUD.ShowEndScreen — needs UI GameObject in scene)
+- [x] Win/lose screen (HUD.ShowEndScreen — needs UI GameObject in scene) with a Restart button (see Core Game Loop)
 - [x] Metal cost shown during placement (placementInfoPanel in HUD; wire in Inspector)
 
 ## Feedback / Polish
 
 - [x] Health bar on all units and buildings (red → green gradient, auto-generated by ProjectSetup)
-- [x] Production progress bar on production buildings (blue, auto-generated by ProjectSetup)
+- [x] Production bar on production buildings shows the raw energy buffer relative to its capacity (not just progress toward the current unit, which used to freeze while paused or waiting on a metal reservation, and could jump instantly when there was already a surplus stored), with a yellow indicator tick marking the energy threshold needed for one unit (`HealthBar.SetIndicator`) — re-run `ProjectSetup` Step 1 to backfill the indicator onto already-created production building prefabs. Also fixed the bar being frozen at its stale prefab default (full bar, indicator at 100%) for the entire construction phase — it was gated behind `IsConstructed`, so it only got its first real update the instant construction finished, snapping down and looking exactly like a unit had just been produced (none was)
 - [x] Cancel placement with Escape/right-click (desktop) or the new Cancel button under `placementInfoPanel` (touch — Escape/right-click don't exist on mobile, so placement was previously uncancelable there; automated via `BeyondAllRoyal → 2 - Wire Scene`, still needs to actually be run + scene saved)
 - [x] Placeholder sprite art for all units and buildings (procedurally generated, `Assets/Sprites/`; higher native resolution for multi-tile buildings so they stay crisp when stretched)
 - [x] Buildings cycle between two sprite frames on a timer (`Building.spriteCycleInterval`); same sprite doubles as the build-menu icon

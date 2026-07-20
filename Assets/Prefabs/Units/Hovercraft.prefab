@@ -106,6 +106,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthBar
   fill: {fileID: 8605660396041123680}
+  indicator: {fileID: 0}
 --- !u!1 &1670345789263259643
 GameObject:
   m_ObjectHideFlags: 0

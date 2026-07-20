@@ -19,7 +19,6 @@ public class MapGrid : MonoBehaviour
     private float halfH, halfW;
     private float xLeft, xSpacing;
     private float innerY, outerY;
-    private float slotSpacing;
 
     private readonly Dictionary<Vector2Int, BuildingSlot> slots = new();
 
@@ -47,16 +46,46 @@ public class MapGrid : MonoBehaviour
         halfH = camHalfH;
         halfW = camHalfH * camAspect;
 
+        var m = ComputeGridLayout(camHalfH, camAspect, layout);
+        xLeft          = m.xLeft;
+        xSpacing       = m.xSpacing;
+        innerY         = m.innerY;
+        outerY         = m.outerY;
+        SlotVisualSize = m.visualSlotSize;
+    }
+
+    // Result of the pure grid-math derivation below.
+    private readonly struct GridLayoutMath
+    {
+        public readonly float xLeft, xRight, xSpacing, innerY, outerY, visualSlotSize;
+
+        public GridLayoutMath(float xLeft, float xRight, float xSpacing, float innerY, float outerY, float visualSlotSize)
+        {
+            this.xLeft = xLeft;
+            this.xRight = xRight;
+            this.xSpacing = xSpacing;
+            this.innerY = innerY;
+            this.outerY = outerY;
+            this.visualSlotSize = visualSlotSize;
+        }
+    }
+
+    // Shared by ComputeLayout (Play Mode, via Start()) and OnDrawGizmos (Edit Mode,
+    // which needs to draw before Start() has ever run) so the two can't silently
+    // drift apart from independently-edited copies of the same formula.
+    private static GridLayoutMath ComputeGridLayout(float camHalfH, float camAspect, MapLayoutData layout)
+    {
+        float halfW  = camHalfH * camAspect;
         float xRight = halfW * layout.widthFraction;
-        xLeft  = -xRight;
-        innerY = halfH * layout.innerFraction;
-        outerY = halfH * layout.outerFraction;
+        float xLeft  = -xRight;
+        float innerY = camHalfH * layout.innerFraction;
+        float outerY = camHalfH * layout.outerFraction;
 
         float xs = layout.columns > 1 ? (xRight - xLeft) / (layout.columns - 1) : xRight - xLeft;
         float ys = layout.rows    > 1 ? (outerY - innerY) / (layout.rows    - 1) : outerY - innerY;
-        xSpacing       = xs;
-        slotSpacing    = Mathf.Min(xs, ys);
-        SlotVisualSize = slotSpacing * 0.85f;
+        float visualSlotSize = Mathf.Min(xs, ys) * 0.85f;
+
+        return new GridLayoutMath(xLeft, xRight, xs, innerY, outerY, visualSlotSize);
     }
 
     // -------------------------------------------------------------------------
@@ -243,17 +272,8 @@ public class MapGrid : MonoBehaviour
     {
         if (layout == null || gameCamera == null) return;
 
-        float gHalfH  = gameCamera.orthographicSize;
-        float gHalfW  = gHalfH * gameCamera.aspect;
-        float gXRight = gHalfW * layout.widthFraction;
-        float gXLeft  = -gXRight;
-        float gInnerY = gHalfH * layout.innerFraction;
-        float gOuterY = gHalfH * layout.outerFraction;
-
-        float gXS = layout.columns > 1 ? (gXRight - gXLeft) / (layout.columns - 1) : gXRight - gXLeft;
-        float gYS = layout.rows    > 1 ? (gOuterY - gInnerY) / (layout.rows    - 1) : gOuterY - gInnerY;
-        float gSlotSize = Mathf.Min(gXS, gYS) * 0.85f;
-        var   cube      = new Vector3(gSlotSize, gSlotSize, 0f);
+        var m    = ComputeGridLayout(gameCamera.orthographicSize, gameCamera.aspect, layout);
+        var cube = new Vector3(m.visualSlotSize, m.visualSlotSize, 0f);
 
         // Determine HQ footprint for highlight
         int hqSize   = 0;
@@ -276,7 +296,7 @@ public class MapGrid : MonoBehaviour
         {
             float tx = layout.columns > 1 ? (float)col / (layout.columns - 1) : 0.5f;
             float ty = layout.rows    > 1 ? (float)row / (layout.rows    - 1) : 0f;
-            float x  = Mathf.Lerp(gXLeft, gXRight, tx);
+            float x  = Mathf.Lerp(m.xLeft, m.xRight, tx);
 
             bool isHQ = hqSize > 0
                 && col >= hqStartC && col < hqStartC + hqSize
@@ -285,12 +305,12 @@ public class MapGrid : MonoBehaviour
             Gizmos.color = isHQ
                 ? new Color(0.3f, 0.7f, 1.0f, 0.9f)
                 : new Color(0.3f, 0.7f, 1.0f, 0.4f);
-            Gizmos.DrawWireCube(new Vector3(x, Mathf.Lerp(-gInnerY, -gOuterY, ty), 0f), cube);
+            Gizmos.DrawWireCube(new Vector3(x, Mathf.Lerp(-m.innerY, -m.outerY, ty), 0f), cube);
 
             Gizmos.color = isHQ
                 ? new Color(1.0f, 0.4f, 0.4f, 0.9f)
                 : new Color(1.0f, 0.4f, 0.4f, 0.4f);
-            Gizmos.DrawWireCube(new Vector3(x, Mathf.Lerp( gInnerY,  gOuterY, ty), 0f), cube);
+            Gizmos.DrawWireCube(new Vector3(x, Mathf.Lerp( m.innerY,  m.outerY, ty), 0f), cube);
         }
     }
 #endif

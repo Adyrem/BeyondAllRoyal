@@ -19,8 +19,8 @@ MonoBehaviour:
   attackRange: 4.5
   attacksPerSecond: 0.5
   moveSpeed: 0.375
-  metalCostPerUnit: 100
-  energyCostPerUnit: 50
+  metalCostPerUnit: 70
+  energyCostPerUnit: 75
   prefab: {fileID: 5846816724767510720, guid: 8ac531041a5084d69bda9fc90c826890, type: 3}
   idleSprite: {fileID: 21300000, guid: 6680099ffda5a7269a8128f15e0fcdae, type: 3}
   shootingSprite: {fileID: 21300000, guid: 0e6067393fa1a6327ad062c2e5b80712, type: 3}

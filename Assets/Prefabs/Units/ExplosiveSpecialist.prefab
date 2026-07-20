@@ -330,3 +330,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthBar
   fill: {fileID: 1513314961177065483}
+  indicator: {fileID: 0}

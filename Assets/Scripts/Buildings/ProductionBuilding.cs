@@ -22,8 +22,23 @@ public class ProductionBuilding : Building
     protected override void Update()
     {
         base.Update();
-        if (!IsConstructed || !IsProducing || !IsGameActive) return;
-        TickProduction();
+        if (!IsGameActive) return;
+
+        // Reflects the live energy buffer from the moment the building exists —
+        // including during construction, which spends from the same buffer —
+        // not just once producing, so it doesn't sit frozen at a stale default
+        // and then jump the instant construction happens to finish.
+        UpdateProductionBar();
+
+        if (IsConstructed && IsProducing)
+            TickProduction();
+    }
+
+    private void UpdateProductionBar()
+    {
+        if (productionBar == null || EnergyBufferCapacity <= 0f) return;
+        productionBar.SetFraction(EnergyBuffer / EnergyBufferCapacity);
+        productionBar.SetIndicator(productionData.unitToProduced.energyCostPerUnit / EnergyBufferCapacity);
     }
 
     private void TickProduction()
@@ -41,14 +56,12 @@ public class ProductionBuilding : Building
         energySpentOnCurrentUnit += use;
 
         float required = productionData.unitToProduced.energyCostPerUnit;
-        productionBar?.SetFraction(energySpentOnCurrentUnit / required);
 
         if (energySpentOnCurrentUnit >= required)
         {
             SpawnUnit();
             energySpentOnCurrentUnit = 0f;
             metalReserved = false;
-            productionBar?.SetFraction(0f);
         }
     }
 

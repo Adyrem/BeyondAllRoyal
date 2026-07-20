@@ -5,6 +5,7 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 // Run from the Unity menu, in order:
@@ -26,7 +27,7 @@ public static class ProjectSetup
         Debug.Log("[BeyondAllRoyal] Project assets set up. Run 2 - Wire Scene once the scene's GameObjects exist.");
     }
 
-    [MenuItem("BeyondAllRoyal/2 - Wire Scene (Shop Panel + Icons + Reserve Slider + Cancel/Demolish Buttons)")]
+    [MenuItem("BeyondAllRoyal/2 - Wire Scene (Shop Panel + Icons + Reserve Slider + Cancel/Demolish/Restart Buttons)")]
     public static void WireScene()
     {
         PopulateShopPanel();
@@ -34,6 +35,7 @@ public static class ProjectSetup
         CreateMinimumReserveSlider();
         CreateCancelPlacementButton();
         CreateDemolishButton();
+        CreateRestartButton();
         Debug.Log("[BeyondAllRoyal] Scene wiring done. Reposition/style the new UI as needed, then save the scene.");
     }
 
@@ -75,15 +77,14 @@ public static class ProjectSetup
 
         // Units                        type                              name                    hp     dmg  range  atkSpd  spd  metal  nrg
         // Move speed values are 1/4 of the original design (0.625, 0.375, 0.625, 1.0, 0.375)
-        // Metal/energy costs raised so Soldier (Barracks) no longer out-cycles
-        // every other production building for the shared metal pool — it was
-        // cheap and fast enough on both axes to monopolize available metal,
-        // starving buildings with higher per-unit costs.
-        CreateUnitData(EntityType.Soldier,             "Soldier",              50f,  10f, 1.5f, 2.0f, 0.625f, 35f,  30f);
-        CreateUnitData(EntityType.HeavyGunner,         "HeavyGunner",         120f,  18f, 4.0f, 1.5f, 0.375f, 55f,  35f);
-        CreateUnitData(EntityType.ExplosiveSpecialist, "ExplosiveSpecialist", 100f,  35f, 3.5f, 0.5f, 0.625f, 55f,  35f);
-        CreateUnitData(EntityType.Hovercraft,          "Hovercraft",          200f,  25f, 2.5f, 1.0f, 1.0f,   110f, 65f);
-        CreateUnitData(EntityType.HeavyTank,           "HeavyTank",           350f,  40f, 4.5f, 0.5f, 0.375f, 110f, 65f);
+        // Metal lowered and energy (build time) raised a bit across the board —
+        // metal was the tighter bottleneck given it's a shared pool across all
+        // production buildings, while energy is per-building and doesn't compete.
+        CreateUnitData(EntityType.Soldier,             "Soldier",              50f,  10f, 1.5f, 2.0f, 0.625f, 22f,  35f);
+        CreateUnitData(EntityType.HeavyGunner,         "HeavyGunner",         120f,  18f, 4.0f, 1.5f, 0.375f, 35f,  40f);
+        CreateUnitData(EntityType.ExplosiveSpecialist, "ExplosiveSpecialist", 100f,  35f, 3.5f, 0.5f, 0.625f, 35f,  40f);
+        CreateUnitData(EntityType.Hovercraft,          "Hovercraft",          200f,  25f, 2.5f, 1.0f, 1.0f,   70f,  75f);
+        CreateUnitData(EntityType.HeavyTank,           "HeavyTank",           350f,  40f, 4.5f, 0.5f, 0.375f, 70f,  75f);
 
         // Production buildings         name              slot          metalBuild  nrgBuild  buffer  unitSO name
         CreateProductionBuildingData("Barracks",    new Vector2Int(1,1), 30f, 20f,  60f, "Soldier");
@@ -126,7 +127,7 @@ public static class ProjectSetup
         hq.metalCostToBuild            = 0f;
         hq.energyCostToBuild           = 0f;
         hq.energyBufferCapacity        = 200f;
-        hq.slotSize                    = new Vector2Int(5, 5);
+        hq.slotSize                    = new Vector2Int(3, 3);
         hq.metalPerSecond              = 2f;
         hq.injectionRatePerBuilding    = 5f;
         hq.injectionRange              = 8f;
@@ -493,7 +494,8 @@ public static class ProjectSetup
 
     static void CreateCancelPlacementButton()
     {
-        CreateHudChildButton("cancelPlacementButton", "placementInfoPanel", "CancelPlacementButton", "Cancel");
+        CreateHudChildButton("cancelPlacementButton", "placementInfoPanel", "CancelPlacementButton", "Cancel",
+            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-10f, 10f), new Vector2(80f, 30f));
     }
 
     // -------------------------------------------------------------------------
@@ -506,13 +508,44 @@ public static class ProjectSetup
 
     static void CreateDemolishButton()
     {
-        CreateHudChildButton("demolishButton", "buildingInfoPanel", "DemolishButton", "Demolish");
+        CreateHudChildButton("demolishButton", "buildingInfoPanel", "DemolishButton", "Demolish",
+            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-10f, 10f), new Vector2(90f, 30f));
     }
 
-    // Shared by CreateCancelPlacementButton/CreateDemolishButton: creates a
-    // button as a child of the GameObject referenced by HUD's parentFieldName,
-    // wires it into HUD's buttonFieldName, and skips if already assigned.
-    static void CreateHudChildButton(string buttonFieldName, string parentFieldName, string goName, string label)
+    // -------------------------------------------------------------------------
+    // Step 2f — adds a Restart button as a child of HUD.endScreen, wired to
+    // HUD.restartButton, which calls GameManager.RestartGame(). Also registers
+    // the current scene in Build Settings, since SceneManager.LoadScene (used
+    // by RestartGame) silently fails on a scene that isn't listed there.
+    // Requires HUD (with endScreen assigned) in the open scene.
+    // -------------------------------------------------------------------------
+
+    static void CreateRestartButton()
+    {
+        EnsureSceneInBuildSettings();
+        CreateHudChildButton("restartButton", "endScreen", "RestartButton", "Restart",
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -60f), new Vector2(140f, 40f));
+    }
+
+    static void EnsureSceneInBuildSettings()
+    {
+        var scene = SceneManager.GetActiveScene();
+        if (string.IsNullOrEmpty(scene.path)) return; // scene was never saved — nothing to register yet
+
+        if (EditorBuildSettings.scenes.Any(s => s.path == scene.path)) return;
+
+        var scenes = EditorBuildSettings.scenes.ToList();
+        scenes.Add(new EditorBuildSettingsScene(scene.path, true));
+        EditorBuildSettings.scenes = scenes.ToArray();
+
+        Debug.Log($"[BeyondAllRoyal] Added '{scene.path}' to Build Settings (required for GameManager.RestartGame()'s scene reload).");
+    }
+
+    // Shared by CreateCancelPlacementButton/CreateDemolishButton/CreateRestartButton:
+    // creates a button as a child of the GameObject referenced by HUD's
+    // parentFieldName, wires it into HUD's buttonFieldName, and skips if already assigned.
+    static void CreateHudChildButton(string buttonFieldName, string parentFieldName, string goName, string label,
+        Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 sizeDelta)
     {
         var hud = Object.FindAnyObjectByType<HUD>(FindObjectsInactive.Include);
         if (hud == null)
@@ -542,11 +575,11 @@ public static class ProjectSetup
         buttonGO.transform.SetParent(panel.transform, false);
 
         var rect = buttonGO.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 0f);
-        rect.anchorMax = new Vector2(1f, 0f);
-        rect.pivot     = new Vector2(1f, 0f);
-        rect.anchoredPosition = new Vector2(-10f, 10f);
-        rect.sizeDelta = new Vector2(90f, 30f);
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot     = pivot;
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = sizeDelta;
 
         // The default label child is legacy Text ("Button") — replace with TMP.
         var legacyText = buttonGO.transform.Find("Text (Legacy)");
@@ -639,7 +672,7 @@ public static class ProjectSetup
         var layout = CreateSO<MapLayoutData>($"{SOMaps}/DefaultMap.asset");
         layout.layoutName    = "Default (Two-Lane)";
         layout.columns       = 8;
-        layout.rows          = 8; // back 5 rows reserved for HQ, front 3 rows free for buildings
+        layout.rows          = 8; // back 3 rows reserved for HQ, front 5 rows free for buildings
         layout.innerFraction = 0.08f;
         layout.outerFraction = 0.90f;
         layout.widthFraction = 0.90f;
@@ -724,6 +757,9 @@ public static class ProjectSetup
                 var root = scope.prefabContentsRoot;
                 if (root.GetComponent<BoxCollider2D>() == null)
                     root.AddComponent<BoxCollider2D>().size = Vector2.one;
+
+                if (typeof(T) == typeof(ProductionBuilding))
+                    EnsureProductionBarIndicator(root, sprite);
             }
             return;
         }
@@ -771,6 +807,24 @@ public static class ProjectSetup
         Object.DestroyImmediate(go);
     }
 
+    // Backfills the indicator tick onto a ProductionBuilding prefab's existing
+    // ProductionBar, for prefabs created before the indicator existed.
+    static void EnsureProductionBarIndicator(GameObject root, Sprite sprite)
+    {
+        var bar = root.transform.Find("ProductionBar");
+        if (bar == null) return;
+
+        var hb = bar.GetComponent<HealthBar>();
+        if (hb == null) return;
+
+        var so = new SerializedObject(hb);
+        var indicatorProp = so.FindProperty("indicator");
+        if (indicatorProp.objectReferenceValue != null) return; // already has one
+
+        indicatorProp.objectReferenceValue = AddBarIndicator(bar.gameObject, sprite);
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
     static void CreateBuildingSlotPrefab(Sprite sprite)
     {
         string path = $"{PrefabBuildings}/BuildingSlot.prefab";
@@ -807,12 +861,16 @@ public static class ProjectSetup
     // -------------------------------------------------------------------------
 
     static HealthBar AddHealthBar(GameObject parent, Sprite sprite, float yOffset)
-        => AddBar(parent, sprite, yOffset, Color.green, "HealthBar");
+        => AddBar(parent, sprite, yOffset, Color.green, "HealthBar", withIndicator: false);
 
+    // The production bar gets an extra indicator tick marking the energy
+    // threshold for one unit, since it shows the raw energy buffer (not just
+    // progress toward the current unit) and capacity is usually well above
+    // that per-unit cost.
     static HealthBar AddProgressBar(GameObject parent, Sprite sprite, float yOffset)
-        => AddBar(parent, sprite, yOffset, new Color(0.2f, 0.6f, 1f), "ProductionBar");
+        => AddBar(parent, sprite, yOffset, new Color(0.2f, 0.6f, 1f), "ProductionBar", withIndicator: true);
 
-    static HealthBar AddBar(GameObject parent, Sprite sprite, float yOffset, Color fillColor, string barName)
+    static HealthBar AddBar(GameObject parent, Sprite sprite, float yOffset, Color fillColor, string barName, bool withIndicator)
     {
         // Background
         var bg = new GameObject(barName);
@@ -838,9 +896,28 @@ public static class ProjectSetup
         var hb = bg.AddComponent<HealthBar>();
         var so = new SerializedObject(hb);
         so.FindProperty("fill").objectReferenceValue = fillSr;
+
+        if (withIndicator)
+            so.FindProperty("indicator").objectReferenceValue = AddBarIndicator(bg, sprite);
+
         so.ApplyModifiedPropertiesWithoutUndo();
 
         return hb;
+    }
+
+    // A thin marker tick, slightly taller than the bar, positioned later via
+    // HealthBar.SetIndicator(fraction). Defaults to the far right (100%) until then.
+    static SpriteRenderer AddBarIndicator(GameObject bar, Sprite sprite)
+    {
+        var indicator = new GameObject("Indicator");
+        indicator.transform.SetParent(bar.transform, false);
+        indicator.transform.localPosition = new Vector3(0.5f, 0f, 0f);
+        indicator.transform.localScale    = new Vector3(0.06f, 1.4f, 1f);
+        var indicatorSr = indicator.AddComponent<SpriteRenderer>();
+        indicatorSr.sprite       = sprite;
+        indicatorSr.color        = Color.yellow;
+        indicatorSr.sortingOrder = 12;
+        return indicatorSr;
     }
 
     // -------------------------------------------------------------------------

@@ -16,7 +16,7 @@ MonoBehaviour:
   maxHealth: 1000
   metalCostToBuild: 0
   energyCostToBuild: 0
-  slotSize: {x: 5, y: 5}
+  slotSize: {x: 3, y: 3}
   energyBufferCapacity: 200
   prefab: {fileID: 0}
   spriteFrameA: {fileID: 21300000, guid: 15146aff869623591a6959e1b64414fe, type: 3}

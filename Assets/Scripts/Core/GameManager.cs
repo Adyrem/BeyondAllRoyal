@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -9,9 +10,6 @@ public class GameManager : MonoBehaviour
 
     public GameSettings Settings => settings;
     public GameState CurrentState { get; private set; } = GameState.Pregame;
-
-    private HQ playerHQ;
-    private HQ npcHQ;
 
     private void Awake()
     {
@@ -28,12 +26,6 @@ public class GameManager : MonoBehaviour
         StartGame();
     }
 
-    public void RegisterHQ(HQ hq, Owner owner)
-    {
-        if (owner == Owner.Player) playerHQ = hq;
-        else npcHQ = hq;
-    }
-
     public void StartGame()
     {
         CurrentState = GameState.InGame;
@@ -43,5 +35,16 @@ public class GameManager : MonoBehaviour
     {
         CurrentState = destroyedOwner == Owner.Player ? GameState.Defeat : GameState.Victory;
         HUD.Instance?.ShowEndScreen(CurrentState);
+    }
+
+    // Reloading the scene resets every MonoBehaviour singleton (GameManager,
+    // ResourceManager, MapGrid, HUD, ...) for free since none are marked
+    // DontDestroyOnLoad. The two plain-static registries aren't scene objects
+    // though, so they need clearing explicitly or stale entries would linger.
+    public void RestartGame()
+    {
+        BuildingRegistry.Reset();
+        UnitRegistry.Reset();
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **BeyondAllRoyal** is a mobile-first 2D RTS game built in **Unity**, inspired by Beyond All Reason and Clash Royale. Futuristic theme.
 
-- **Win condition:** Destroy the enemy HQ
+- **Win condition:** Destroy the enemy HQ; a Restart button on the end screen (`GameManager.RestartGame()`) reloads the scene for a rematch
 - **Game mode (MVP):** 1v1 vs NPC; multiplayer planned post-MVP
 - **Unit behavior:** Fully autonomous — target priority is enemy units that have pushed onto our own side of the map > buildings in attack range > units in attack range > buildings out of range > units out of range; no micro required
 - **Production:** Unit-producing buildings continuously produce units unless manually stopped
@@ -30,7 +30,7 @@ A shared **minimum metal reserve** (`ResourceManager.MinimumMetalReserve`, adjus
 
 - Layout is configurable via lobby settings
 - **Default:** Clash Royale-style, two lanes, symmetric
-- Each side has space for ~40 building slots; buildings can occupy multiple slots
+- Each side has space for ~55 building slots (8×8 grid minus the HQ's own 3×3 footprint); buildings can occupy multiple slots
 - Map layout is data-driven so different configurations can be swapped in
 
 ## Units & Counter System
@@ -59,7 +59,7 @@ The MVP NPC continuously produces 3 pre-selected unit types at equal rates. No s
 3. In the scene, create GameObjects for `GameManager`, `ResourceManager`, `MapGrid`, `HUD`, `NPCController`, and add a `BuildingShopPanel` under HUD's Canvas
 4. Run `Assets/Scripts/Editor/ProjectSetup.cs`'s two menu items, in order:
    - `BeyondAllRoyal → 1 - Setup Project Assets` — no scene needed; creates/wires ScriptableObjects, prefabs, and sprites (internally: ScriptableObjects → Prefabs → Sprites)
-   - `BeyondAllRoyal → 2 - Wire Scene` — run once the GameObjects from step 3 exist; populates the shop panel with one button per placeable building, backfills any missing shop icons, creates the minimum-reserve slider under HUD's Canvas, adds a Cancel button under `HUD.placementInfoPanel`, and a Demolish button under `HUD.buildingInfoPanel` (internally: Populate Shop Panel → Auto-Wire Shop Icons → Create Minimum Reserve Slider → Create Cancel Placement Button → Create Demolish Button). Reposition/style the new UI as needed, then save the scene.
+   - `BeyondAllRoyal → 2 - Wire Scene` — run once the GameObjects from step 3 exist; populates the shop panel with one button per placeable building, backfills any missing shop icons, creates the minimum-reserve slider under HUD's Canvas, adds a Cancel button under `HUD.placementInfoPanel`, a Demolish button under `HUD.buildingInfoPanel`, and a Restart button under `HUD.endScreen` (also registers the current scene in Build Settings, required for `GameManager.RestartGame()`'s scene reload to work) (internally: Populate Shop Panel → Auto-Wire Shop Icons → Create Minimum Reserve Slider → Create Cancel Placement Button → Create Demolish Button → Create Restart Button). Reposition/style the new UI as needed, then save the scene.
 5. Assign the generated `GameSettings` asset to `GameManager` in the Inspector (everything else `ProjectSetup` created is already cross-referenced)
 
 ## Code Architecture
@@ -84,7 +84,7 @@ All runtime data lives in **ScriptableObjects** (`Assets/Scripts/Data/`). MonoBe
 
 `Building` is the base class. It owns the **energy buffer**, the **construction tick** (energy drains from buffer until `energyCostToBuild` is met), `TakeDamage`, the **grid origin** it was placed at (`GridOrigin`, set by `MapGrid.TryPlaceBuilding`, freed via `MapGrid.RemoveBuilding` on destruction), and the two-frame **sprite cycle** (`data.spriteFrameA`/`spriteFrameB`, swapped every `data.spriteCycleInterval` seconds — also shared as the build-menu icon). `Demolish()` lets the player voluntarily remove a building they own (wired to a HUD button, hidden for HQ); `HQ` overrides it to refuse, since the HQ can only be lost in combat. Subclasses override `Update` and call `base.Update()`.
 
-- `ProductionBuilding` — reserves metal upfront, then drains energy until one unit's `energyCostPerUnit` is reached, then spawns the unit
+- `ProductionBuilding` — reserves metal upfront, then drains energy until one unit's `energyCostPerUnit` is reached, then spawns the unit. Its progress bar shows the raw energy buffer relative to capacity (not just progress toward the current unit, so it doesn't freeze while paused or waiting on a metal reservation), with an `Indicator` tick (`HealthBar.SetIndicator`) marking the energy threshold for one unit
 - `DefenseTower` — scans for nearest enemy unit each frame (via `Building.FindNearestEnemyUnitInRange`), fires when in range if energy buffer allows. Every attack (`DefenseTower`, `HQ`, and `UnitAI`) draws a placeholder `AttackBeamSpawner` line from attacker to target — blue for the player, red for the NPC (`Assets/Scripts/Effects/`) — swap its internals for a fancier effect later without touching call sites
 - `TeslaTower` / `HQ` — both inject energy into nearby friendly buildings via the shared `Building.InjectEnergyIntoNearby(rate, range)` helper
 - `MetalFactory` — adds metal to `ResourceManager` each frame when constructed
@@ -100,7 +100,7 @@ All runtime data lives in **ScriptableObjects** (`Assets/Scripts/Data/`). MonoBe
 
 ### Key singletons
 
-`GameManager`, `ResourceManager`, `MapGrid`, `HUD` — all follow the standard Unity singleton pattern (destroy duplicate on `Awake`).
+`GameManager`, `ResourceManager`, `MapGrid`, `HUD` — all follow the standard Unity singleton pattern (destroy duplicate on `Awake`). `GameManager.RestartGame()` reloads the active scene, which resets every MonoBehaviour singleton for free (none are `DontDestroyOnLoad`); it also explicitly clears `BuildingRegistry`/`UnitRegistry`, since those are plain static lists that a scene reload alone wouldn't touch.
 
 ## Version Control
 

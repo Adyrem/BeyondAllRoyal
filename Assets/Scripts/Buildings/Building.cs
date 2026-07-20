@@ -176,6 +176,12 @@ public class Building : MonoBehaviour
 
     protected virtual void OnDestroyed()
     {
+        // Combat deaths (unlike a voluntary Demolish) don't go through HUD's own
+        // deselect call, so without this the info panel would stay open showing
+        // stale data for a building that no longer exists.
+        if (BuildingSelector.Instance != null && BuildingSelector.Instance.SelectedBuilding == this)
+            BuildingSelector.Instance.Deselect();
+
         MapGrid.Instance?.RemoveBuilding(GridOrigin, data.slotSize);
         BuildingRegistry.Unregister(this);
         Destroy(gameObject);
