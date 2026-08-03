@@ -6,7 +6,7 @@ using UnityEngine;
 public class MapLayoutData : ScriptableObject
 {
     public string layoutName;
-    public int columns = 8;
+    public int columns = 9;
     public int rows    = 8;
 
     [Range(0.01f, 0.49f)]

@@ -14,3 +14,7 @@ public enum Owner { Player, NPC }
 public enum GameState { Pregame, InGame, Victory, Defeat }
 
 public enum CounterResult { Even, Strong, Weak }
+
+public enum GameMode { Singleplayer, Multiplayer }
+
+public enum AIDifficulty { Easy, Medium, Hard }

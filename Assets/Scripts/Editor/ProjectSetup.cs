@@ -10,15 +10,22 @@ using UnityEngine.UI;
 
 // Run from the Unity menu, in order:
 //   BeyondAllRoyal → 1 - Setup Project Assets   (no scene needed)
-//   BeyondAllRoyal → 2 - Wire Scene             (run once GameManager/HUD/MapGrid/BuildingShopPanel exist in-scene)
+//   BeyondAllRoyal → 2 - Wire Scene             (run once GameManager/HUD/MapGrid/BuildingShopPanel/NPCController exist in-scene)
+//   BeyondAllRoyal → 3 - Create Main Menu Scene (see MainMenuSetup.cs; standalone, can run any time after Step 1)
+//   BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene (see ThemeSetup.cs; re-runnable any time, unlike Step 2)
 public static class ProjectSetup
 {
     // -------------------------------------------------------------------------
     // Consolidated entry points — everything below is grouped into these two
     // menu items so there's only one asset step and one scene step to run.
+    // Keep these MenuItem strings short and slash-free: Unity treats every "/"
+    // in the path as a submenu separator, so a descriptive suffix like
+    // "(... Cancel/Demolish/Restart ...)" silently explodes into a chain of
+    // nested submenus instead of one clickable item. Put details in comments
+    // (here and in WireScene's own Debug.Log) instead of the menu string.
     // -------------------------------------------------------------------------
 
-    [MenuItem("BeyondAllRoyal/1 - Setup Project Assets (ScriptableObjects + Prefabs + Sprites)")]
+    [MenuItem("BeyondAllRoyal/1 - Setup Project Assets")]
     public static void SetupProjectAssets()
     {
         CreateScriptableObjects();
@@ -27,7 +34,10 @@ public static class ProjectSetup
         Debug.Log("[BeyondAllRoyal] Project assets set up. Run 2 - Wire Scene once the scene's GameObjects exist.");
     }
 
-    [MenuItem("BeyondAllRoyal/2 - Wire Scene (Shop Panel + Icons + Reserve Slider + Cancel/Demolish/Restart Buttons)")]
+    // Populates the shop panel, backfills shop icons, creates the minimum-reserve
+    // slider, adds Cancel/Demolish/Restart buttons, and populates the NPC's
+    // production building pool.
+    [MenuItem("BeyondAllRoyal/2 - Wire Scene")]
     public static void WireScene()
     {
         PopulateShopPanel();
@@ -36,6 +46,7 @@ public static class ProjectSetup
         CreateCancelPlacementButton();
         CreateDemolishButton();
         CreateRestartButton();
+        AutoWireNPCBuildingTypes();
         Debug.Log("[BeyondAllRoyal] Scene wiring done. Reposition/style the new UI as needed, then save the scene.");
     }
 
@@ -50,6 +61,7 @@ public static class ProjectSetup
     const string SpriteBuildingsPath = "Assets/Sprites/Buildings";
 
     static readonly string[] UnitNames = { "Soldier", "HeavyGunner", "ExplosiveSpecialist", "Hovercraft", "HeavyTank" };
+    static readonly string[] ProductionBuildingNames = { "Barracks", "GunRange", "Laboratory", "SkimmerPad", "IronWorks" };
     static readonly string[] BuildingNames = {
         "Barracks", "GunRange", "Laboratory", "SkimmerPad", "IronWorks",
         "MachinegunTurret", "RailgunTurret", "TeslaTower", "MetalFactory", "HQ"
@@ -298,8 +310,8 @@ public static class ProjectSetup
         if (panel.GetComponent<GridLayoutGroup>() == null)
         {
             var grid = panel.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(100f, 100f);
-            grid.spacing  = new Vector2(8f, 8f);
+            grid.cellSize = new Vector2(160f, 160f);
+            grid.spacing  = new Vector2(12f, 12f);
         }
 
         var so = new SerializedObject(panel);
@@ -338,7 +350,7 @@ public static class ProjectSetup
             labelRect.offsetMax = Vector2.zero;
             var label = labelGO.AddComponent<TextMeshProUGUI>();
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize  = 14f;
+            label.fontSize  = 20f;
             label.text      = $"{data.metalCostToBuild:F0}";
 
             int idx = entries.arraySize;
@@ -456,8 +468,8 @@ public static class ProjectSetup
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot     = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(20f, -80f);
-        rect.sizeDelta = new Vector2(160f, 20f);
+        rect.anchoredPosition = new Vector2(24f, -100f);
+        rect.sizeDelta = new Vector2(240f, 32f);
 
         var slider = sliderGO.GetComponent<Slider>();
         slider.minValue = 0f;
@@ -470,10 +482,10 @@ public static class ProjectSetup
         labelRect.anchorMin = new Vector2(0f, 1f);
         labelRect.anchorMax = new Vector2(0f, 1f);
         labelRect.pivot     = new Vector2(0f, 1f);
-        labelRect.anchoredPosition = new Vector2(190f, -80f);
-        labelRect.sizeDelta = new Vector2(140f, 20f);
+        labelRect.anchoredPosition = new Vector2(276f, -100f);
+        labelRect.sizeDelta = new Vector2(220f, 32f);
         var label = labelGO.AddComponent<TextMeshProUGUI>();
-        label.fontSize = 14f;
+        label.fontSize = 20f;
         label.text = "Min Reserve: 50";
 
         sliderProp.objectReferenceValue = slider;
@@ -495,7 +507,7 @@ public static class ProjectSetup
     static void CreateCancelPlacementButton()
     {
         CreateHudChildButton("cancelPlacementButton", "placementInfoPanel", "CancelPlacementButton", "Cancel",
-            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-10f, 10f), new Vector2(80f, 30f));
+            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-16f, 16f), new Vector2(130f, 50f));
     }
 
     // -------------------------------------------------------------------------
@@ -509,7 +521,7 @@ public static class ProjectSetup
     static void CreateDemolishButton()
     {
         CreateHudChildButton("demolishButton", "buildingInfoPanel", "DemolishButton", "Demolish",
-            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-10f, 10f), new Vector2(90f, 30f));
+            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-16f, 16f), new Vector2(140f, 50f));
     }
 
     // -------------------------------------------------------------------------
@@ -524,7 +536,7 @@ public static class ProjectSetup
     {
         EnsureSceneInBuildSettings();
         CreateHudChildButton("restartButton", "endScreen", "RestartButton", "Restart",
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -60f), new Vector2(140f, 40f));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -90f), new Vector2(220f, 64f));
     }
 
     static void EnsureSceneInBuildSettings()
@@ -539,6 +551,51 @@ public static class ProjectSetup
         EditorBuildSettings.scenes = scenes.ToArray();
 
         Debug.Log($"[BeyondAllRoyal] Added '{scene.path}' to Build Settings (required for GameManager.RestartGame()'s scene reload).");
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 2g — populates NPCController.allProductionBuildingTypes with all 5
+    // production buildings, so it has a full pool to randomly pick from each
+    // match (see NPCController.AssignRandomBuildingTypes). Requires NPCController
+    // in the open scene.
+    // -------------------------------------------------------------------------
+
+    static void AutoWireNPCBuildingTypes()
+    {
+        var npc = Object.FindAnyObjectByType<NPCController>(FindObjectsInactive.Include);
+        if (npc == null)
+        {
+            Debug.LogWarning("[BeyondAllRoyal] No NPCController found in the open scene.");
+            return;
+        }
+
+        var so = new SerializedObject(npc);
+        var typesProp = so.FindProperty("allProductionBuildingTypes");
+
+        if (typesProp.arraySize > 0)
+        {
+            Debug.Log("[BeyondAllRoyal] NPCController.allProductionBuildingTypes already populated — skipping.");
+            return;
+        }
+
+        typesProp.arraySize = ProductionBuildingNames.Length;
+
+        int wired = 0;
+        for (int i = 0; i < ProductionBuildingNames.Length; i++)
+        {
+            var name    = ProductionBuildingNames[i];
+            var data    = AssetDatabase.LoadAssetAtPath<BuildingData>($"{SOBuildings}/{name}.asset");
+            var prefab  = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabBuildings}/{name}.prefab");
+            var element = typesProp.GetArrayElementAtIndex(i);
+            element.FindPropertyRelative("data").objectReferenceValue   = data;
+            element.FindPropertyRelative("prefab").objectReferenceValue = prefab;
+            if (data != null && prefab != null) wired++;
+        }
+
+        so.ApplyModifiedProperties();
+        EditorSceneManager.MarkSceneDirty(npc.gameObject.scene);
+        Debug.Log($"[BeyondAllRoyal] Wired {wired}/{ProductionBuildingNames.Length} production building types into " +
+                  "NPCController.allProductionBuildingTypes. Save the scene.");
     }
 
     // Shared by CreateCancelPlacementButton/CreateDemolishButton/CreateRestartButton:
@@ -594,7 +651,7 @@ public static class ProjectSetup
         labelRect.offsetMax = Vector2.zero;
         var labelText = labelGO.AddComponent<TextMeshProUGUI>();
         labelText.alignment = TextAlignmentOptions.Center;
-        labelText.fontSize  = 14f;
+        labelText.fontSize  = 22f;
         labelText.text      = label;
 
         buttonProp.objectReferenceValue = buttonGO.GetComponent<Button>();
@@ -671,7 +728,7 @@ public static class ProjectSetup
     {
         var layout = CreateSO<MapLayoutData>($"{SOMaps}/DefaultMap.asset");
         layout.layoutName    = "Default (Two-Lane)";
-        layout.columns       = 8;
+        layout.columns       = 9; // odd width so the HQ's 3-wide footprint centers exactly (see MapGrid.PlaceHQs)
         layout.rows          = 8; // back 3 rows reserved for HQ, front 5 rows free for buildings
         layout.innerFraction = 0.08f;
         layout.outerFraction = 0.90f;
@@ -876,7 +933,7 @@ public static class ProjectSetup
         var bg = new GameObject(barName);
         bg.transform.SetParent(parent.transform, false);
         bg.transform.localPosition = new Vector3(0f, yOffset, 0f);
-        bg.transform.localScale    = new Vector3(0.9f, 0.08f, 1f);
+        bg.transform.localScale    = new Vector3(0.9f, 0.12f, 1f);
         var bgSr = bg.AddComponent<SpriteRenderer>();
         bgSr.sprite       = sprite;
         bgSr.color        = new Color(0.1f, 0.1f, 0.1f, 0.8f);

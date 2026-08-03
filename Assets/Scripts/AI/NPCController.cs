@@ -2,12 +2,15 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// The NPC cycles through up to 3 building types, placing a new instance whenever
-// it has metal to spare beyond the current metal surplus reserve and a free slot
-// exists — this keeps it from pouring all its income into buildings and starving
-// its own unit production. It also occasionally places an economy building (e.g.
-// Metal Factory) instead, and forces one through if it hasn't placed anything in
-// a while. All placed production buildings are kept continuously producing.
+// At match start, the NPC is randomly assigned a subset of the production
+// building types (see AssignRandomBuildingTypes) and cycles through them,
+// placing a new instance whenever it has metal to spare beyond the current
+// metal surplus reserve and a free slot exists — this keeps it from pouring
+// all its income into buildings and starving its own unit production. It also
+// occasionally places an economy building (e.g. Metal Factory) instead, and
+// forces one through if it hasn't placed anything in a while. All placed
+// production buildings are kept continuously producing. AIDifficulty (chosen
+// on the main menu) scales the pacing of all of the above — see ApplyDifficulty.
 public class NPCController : MonoBehaviour
 {
     [System.Serializable]
@@ -17,8 +20,17 @@ public class NPCController : MonoBehaviour
         public GameObject   prefab;
     }
 
-    [SerializeField] private BuildingType[] buildingTypes; // assign 3 in Inspector
+    [Tooltip("All production building types the AI can be assigned (one per unit type). " +
+             "At match start, randomBuildingTypeCount of these are picked at random into the " +
+             "active round-robin — see AssignRandomBuildingTypes().")]
+    [SerializeField] private BuildingType[] allProductionBuildingTypes;
+    [SerializeField] private int randomBuildingTypeCount = 3;
     [SerializeField] private float placementCheckInterval = 3f;
+
+    // Randomly-selected subset of allProductionBuildingTypes for this match — see
+    // AssignRandomBuildingTypes(). Starts empty (rather than null) so an Update()
+    // that somehow runs before Start()'s coroutine assigns it can't NRE.
+    private BuildingType[] buildingTypes = System.Array.Empty<BuildingType>();
 
     [Header("Economy")]
     [Tooltip("Non-production buildings (Metal Factory, Tesla Tower, ...) the NPC occasionally " +
@@ -44,10 +56,67 @@ public class NPCController : MonoBehaviour
     private float checkTimer;
     private float timeSinceLastBuild;
 
+    private void Awake()
+    {
+        ApplyDifficulty(GameSetup.Difficulty);
+    }
+
+    // Scales the Inspector-set values (treated as the Medium baseline) by a
+    // per-difficulty multiplier — Easy checks less often and keeps a bigger
+    // safety margin before spending; Hard checks more often, spends closer to
+    // the edge, and tolerates less of a stall before forcing a build through.
+    private void ApplyDifficulty(AIDifficulty difficulty)
+    {
+        float checkIntervalMul, reserveMul, economyChanceMul, forceBuildMul;
+        switch (difficulty)
+        {
+            case AIDifficulty.Easy:
+                checkIntervalMul = 1.5f; reserveMul = 1.4f; economyChanceMul = 0.7f; forceBuildMul = 1.5f;
+                break;
+            case AIDifficulty.Hard:
+                checkIntervalMul = 0.6f; reserveMul = 0.75f; economyChanceMul = 1.2f; forceBuildMul = 0.7f;
+                break;
+            default: // Medium — Inspector-set values unchanged
+                checkIntervalMul = 1f; reserveMul = 1f; economyChanceMul = 1f; forceBuildMul = 1f;
+                break;
+        }
+
+        placementCheckInterval        *= checkIntervalMul;
+        metalReserveMultiplier        *= reserveMul;
+        economyBuildChance              = Mathf.Clamp01(economyBuildChance * economyChanceMul);
+        forceEconomyBuildAfterSeconds *= forceBuildMul;
+    }
+
     private IEnumerator Start()
     {
         yield return null; // wait for MapGrid.Start() to finish
+        AssignRandomBuildingTypes();
         checkTimer = 0f;   // attempt first placement immediately
+    }
+
+    // Picks randomBuildingTypeCount distinct entries out of allProductionBuildingTypes
+    // for this match's active round-robin, so each singleplayer game gives the AI a
+    // different mix of unit types instead of always the same fixed set.
+    private void AssignRandomBuildingTypes()
+    {
+        if (allProductionBuildingTypes == null || allProductionBuildingTypes.Length == 0)
+        {
+            buildingTypes = System.Array.Empty<BuildingType>();
+            return;
+        }
+
+        int count = Mathf.Clamp(randomBuildingTypeCount, 1, allProductionBuildingTypes.Length);
+
+        // Fisher-Yates partial shuffle on a copy, then take the first `count`.
+        var pool = (BuildingType[])allProductionBuildingTypes.Clone();
+        for (int i = 0; i < count; i++)
+        {
+            int swapIdx = Random.Range(i, pool.Length);
+            (pool[i], pool[swapIdx]) = (pool[swapIdx], pool[i]);
+        }
+
+        buildingTypes = new BuildingType[count];
+        System.Array.Copy(pool, buildingTypes, count);
     }
 
     private void Update()

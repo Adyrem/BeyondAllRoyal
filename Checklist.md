@@ -18,9 +18,16 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 - [x] Win condition: detect HQ destruction, trigger end state
 - [x] Restart the game after a win/loss — `GameManager.RestartGame()` reloads the scene (also explicitly clears `BuildingRegistry`/`UnitRegistry`, since those are plain static lists a scene reload wouldn't otherwise touch); wired to a Restart button on the end screen via `BeyondAllRoyal → 2 - Wire Scene`, which also registers the scene in Build Settings (required for the reload) — still needs to actually be run + scene saved
 
+## Main Menu
+
+- [x] `MainMenu` scene (build index 0) with a title, an AI difficulty dropdown (Easy/Medium/Hard), a Singleplayer button, and a disabled Multiplayer placeholder button (`MainMenuController.cs`) — built from scratch (Camera, EventSystem with `InputSystemUIInputModule`, Canvas) by `BeyondAllRoyal → 3 - Create Main Menu Scene` (`MainMenuSetup.cs`); still needs to actually be run + scene saved
+- [x] Singleplayer button writes the chosen difficulty/mode to `GameSetup` (a plain static class, not a `DontDestroyOnLoad` singleton — only needs to survive the one scene load) and loads `PlayScene`; defaults to Singleplayer/Medium so `PlayScene` can still be tested directly in the Editor without going through the menu
+- [ ] Multiplayer — button present but non-interactive; not implemented (see Multiplayer (Post-MVP))
+- [x] Dark purple UI theme (`UITheme.cs`) applied to `MainMenu` (baked in by `MainMenuSetup`) and `PlayScene`'s HUD/shop panel via `BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene` (`ThemeSetup.cs`) — re-runnable any time (unlike Steps 2/3) since it force-recolors whatever HUD/BuildingShopPanel already reference instead of skipping already-wired UI; still needs to actually be run + scene saved
+
 ## Map System
 
-- [x] Building slot grid — each side has ~55 free slots (8 cols × 8 rows; back 3 rows reserved for HQ, now 3×3 instead of 5×5 — re-run `ProjectSetup` Step 1 to update the existing `HQData` asset and re-import the resized HQ sprite)
+- [x] Building slot grid — each side has ~63 free slots (9 cols × 8 rows; back 3 rows reserved for HQ, 3×3); columns changed from 8 to 9 so the HQ's 3-wide footprint centers exactly instead of sitting one slot off-center — re-run `ProjectSetup` Step 1 to update the existing `DefaultMap` asset
 - [x] Buildings can occupy variable slot counts
 - [x] Map layout loaded from ScriptableObject so layouts are swappable
 - [x] Default map: two-lane Clash Royale-style layout
@@ -49,7 +56,7 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 - [x] All buildings passively trickle-fill their own energy buffer
 - [x] Building placement on slots — player input (BuildingPlacer + BuildingGhost); ghost/placement footprint is centered on the tapped cell (`MapGrid.GetPlacementOrigin`) instead of treating it as the top-left corner, so it now visually spans exactly the cells that will be affected; `BuildingGhost` forces a full-bleed solid sprite (not whatever "badge"-style icon sprite happened to be assigned in the Inspector, which had lots of transparent padding and made the ghost look tiny), forces `SpriteRenderer.drawMode = Simple`, and detaches from any scene parent on `Awake`, so its size can't be thrown off by scene-side Inspector state
 - [x] Opening the shop panel always cancels any in-progress building placement (`HUD.ToggleShop`), so a previously-selected building doesn't linger as a ghost underneath the menu
-- [x] NPC builds continuously from 3 types as metal allows
+- [x] NPC builds continuously from a randomly-assigned set of 3 production types as metal allows (see NPC / AI)
 - [x] Any building except HQ can be voluntarily demolished to free its slot (`Building.Demolish()`, HUD Demolish button shown when a non-HQ building is selected; `HQ.Demolish()` refuses as a second line of defense) — still needs `BeyondAllRoyal → 2 - Wire Scene` run + scene saved
 - [x] Fixed Demolish/Pause Production appearing not to work: `BuildingSelector`/`BuildingPlacer` never checked whether a tap landed on a UI element, so clicking those HUD buttons also registered as a world-space tap and immediately deselected the building right after the action ran. Both now skip via `InputHelper.TapHitInteractiveUI()` when the tap hit an interactive element (Button/Slider) specifically — an initial blanket `IsPointerOverGameObject()` check caused a regression where the info panel couldn't be closed at all for production buildings (they show an extra `productionPanel`, covering enough screen area that a "tap elsewhere to deselect" often landed on that panel's own background and got swallowed too); the precise Selectable-only check lets taps on passive panel backgrounds still reach the world
 - [x] Pause/Resume Production button is now explicitly hidden for anything that isn't a `ProductionBuilding` (Tesla Tower, Metal Factory, towers) instead of only relying on the parent panel's visibility
@@ -71,13 +78,14 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 ## NPC / AI
 
 - [x] NPC resource accumulation (same rules as player)
-- [x] NPC cycles through 3 building types, placing new instances only once metal has a surplus over a reserve threshold (previously it out-built its own economy and never had metal left to actually produce units)
+- [x] NPC is randomly assigned 3 of the 5 production building types at match start (`NPCController.AssignRandomBuildingTypes`, picked from `allProductionBuildingTypes` — auto-wired with all 5 by `BeyondAllRoyal → 2 - Wire Scene`), and cycles through them, placing new instances only once metal has a surplus over a reserve threshold (previously it out-built its own economy and never had metal left to actually produce units)
 - [x] NPC's metal reserve threshold scales with its own base: `(sum of metalCostPerUnit across active production buildings) * metalReserveMultiplier` (default 1.1) — grows automatically as more buildings go up, instead of a flat number
 - [x] NPC fills free slots back-to-front (`MapGrid.TryGetFreeSlot` searches rows closest to its own HQ first), so new buildings tuck in behind existing ones instead of exposing themselves at the front line
 - [x] NPC keeps all placed production buildings continuously producing
 - [x] NPC occasionally places an economy building (Metal Factory, Tesla Tower, ...) instead of a production building — `economyBuildingTypes`/`economyBuildChance` (default 25%) on `NPCController`, still needs at least Metal Factory assigned in the Inspector
 - [x] NPC's reserve threshold is floored by the shared `ResourceManager.MinimumMetalReserve` (set via the HUD slider), on top of its own dynamic per-building calculation
 - [x] NPC forces an economy building through (ignoring the reserve) if `forceEconomyBuildAfterSeconds` (default 15s) passes without placing anything at all, so it can't get stuck never building
+- [x] AI difficulty (chosen on the main menu, `GameSetup.Difficulty`) scales the NPC's economy pacing — `NPCController.ApplyDifficulty` multiplies `placementCheckInterval`/`metalReserveMultiplier`/`economyBuildChance`/`forceEconomyBuildAfterSeconds` by an Easy/Medium/Hard factor at `Awake`; unit/building stats stay symmetric between Player and NPC
 
 ## UI / Mobile
 

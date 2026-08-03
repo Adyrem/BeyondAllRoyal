@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DefaultMap
   m_EditorClassIdentifier: Assembly-CSharp::MapLayoutData
   layoutName: Default (Two-Lane)
-  columns: 8
+  columns: 9
   rows: 8
   innerFraction: 0.08
   outerFraction: 0.9

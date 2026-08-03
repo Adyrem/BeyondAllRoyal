@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **BeyondAllRoyal** is a mobile-first 2D RTS game built in **Unity**, inspired by Beyond All Reason and Clash Royale. Futuristic theme.
 
 - **Win condition:** Destroy the enemy HQ; a Restart button on the end screen (`GameManager.RestartGame()`) reloads the scene for a rematch
-- **Game mode (MVP):** 1v1 vs NPC; multiplayer planned post-MVP
+- **Game mode (MVP):** 1v1 vs NPC; multiplayer planned post-MVP. A `MainMenu` scene (build index 0) lets the player pick Singleplayer or Multiplayer (Multiplayer is a disabled placeholder button) and an AI difficulty (Easy/Medium/Hard) before loading `PlayScene`
 - **Unit behavior:** Fully autonomous — target priority is enemy units that have pushed onto our own side of the map > buildings in attack range > units in attack range > buildings out of range > units out of range; no micro required
 - **Production:** Unit-producing buildings continuously produce units unless manually stopped
 - **Perspective:** Fixed camera, 2D (mobile-first, performance-conscious)
@@ -30,7 +30,7 @@ A shared **minimum metal reserve** (`ResourceManager.MinimumMetalReserve`, adjus
 
 - Layout is configurable via lobby settings
 - **Default:** Clash Royale-style, two lanes, symmetric
-- Each side has space for ~55 building slots (8×8 grid minus the HQ's own 3×3 footprint); buildings can occupy multiple slots
+- Each side has space for ~63 building slots (9×8 grid minus the HQ's own 3×3 footprint); buildings can occupy multiple slots. The grid is 9 columns wide (odd) specifically so the HQ's 3-wide footprint centers exactly (`MapGrid.PlaceHQs`'s `(columns - hqSize) / 2` needs an odd/odd or even/even pairing to land on a whole number without drifting off-center)
 - Map layout is data-driven so different configurations can be swapped in
 
 ## Units & Counter System
@@ -48,7 +48,9 @@ Unit names and stats are TBD (fill in UnitDesign.md).
 
 ## NPC (MVP)
 
-The MVP NPC continuously produces 3 pre-selected unit types at equal rates. No strategic decision-making. It only places a new production building once metal exceeds the build cost by a reserve margin — that reserve is `max(ResourceManager.MinimumMetalReserve, sum of metalCostPerUnit across all active production buildings * metalReserveMultiplier)` (multiplier default 1.1), so it automatically grows as more buildings go up instead of being a flat number, keeping enough metal free to actually fund unit production, while never dropping below the shared minimum. It also fills free slots back-to-front (`MapGrid.TryGetFreeSlot` searches rows near its own HQ first), so new buildings tuck in behind existing ones instead of exposing themselves at the front line. Each placement check it has a chance (`economyBuildChance`, default 25%) to place from a separate `economyBuildingTypes` list (e.g. Metal Factory, Tesla Tower) instead of a production building — and if `forceEconomyBuildAfterSeconds` (default 15s) passes without placing anything at all, it forces an economy building through regardless of the reserve, so it can't stall forever.
+At the start of each match, the NPC is randomly assigned 3 of the 5 production building types (`NPCController.AssignRandomBuildingTypes`, picked from the full pool in `allProductionBuildingTypes`) and continuously produces them at equal rates — so the AI's army composition varies between matches instead of always being the same fixed 3. No strategic decision-making beyond that. It only places a new production building once metal exceeds the build cost by a reserve margin — that reserve is `max(ResourceManager.MinimumMetalReserve, sum of metalCostPerUnit across all active production buildings * metalReserveMultiplier)` (multiplier default 1.1), so it automatically grows as more buildings go up instead of being a flat number, keeping enough metal free to actually fund unit production, while never dropping below the shared minimum. It also fills free slots back-to-front (`MapGrid.TryGetFreeSlot` searches rows near its own HQ first), so new buildings tuck in behind existing ones instead of exposing themselves at the front line. Each placement check it has a chance (`economyBuildChance`, default 25%) to place from a separate `economyBuildingTypes` list (e.g. Metal Factory, Tesla Tower) instead of a production building — and if `forceEconomyBuildAfterSeconds` (default 15s) passes without placing anything at all, it forces an economy building through regardless of the reserve, so it can't stall forever.
+
+The `AIDifficulty` picked on the main menu (`GameSetup.Difficulty`) scales all of the above pacing knobs at `Awake` (`NPCController.ApplyDifficulty`) — Easy checks less often and keeps a bigger metal-reserve margin before spending, Hard checks more often and spends closer to the edge — rather than changing unit/building stats, which stay symmetric between Player and NPC.
 
 ---
 
@@ -59,8 +61,10 @@ The MVP NPC continuously produces 3 pre-selected unit types at equal rates. No s
 3. In the scene, create GameObjects for `GameManager`, `ResourceManager`, `MapGrid`, `HUD`, `NPCController`, and add a `BuildingShopPanel` under HUD's Canvas
 4. Run `Assets/Scripts/Editor/ProjectSetup.cs`'s two menu items, in order:
    - `BeyondAllRoyal → 1 - Setup Project Assets` — no scene needed; creates/wires ScriptableObjects, prefabs, and sprites (internally: ScriptableObjects → Prefabs → Sprites)
-   - `BeyondAllRoyal → 2 - Wire Scene` — run once the GameObjects from step 3 exist; populates the shop panel with one button per placeable building, backfills any missing shop icons, creates the minimum-reserve slider under HUD's Canvas, adds a Cancel button under `HUD.placementInfoPanel`, a Demolish button under `HUD.buildingInfoPanel`, and a Restart button under `HUD.endScreen` (also registers the current scene in Build Settings, required for `GameManager.RestartGame()`'s scene reload to work) (internally: Populate Shop Panel → Auto-Wire Shop Icons → Create Minimum Reserve Slider → Create Cancel Placement Button → Create Demolish Button → Create Restart Button). Reposition/style the new UI as needed, then save the scene.
+   - `BeyondAllRoyal → 2 - Wire Scene` — run once the GameObjects from step 3 exist; populates the shop panel with one button per placeable building, backfills any missing shop icons, creates the minimum-reserve slider under HUD's Canvas, adds a Cancel button under `HUD.placementInfoPanel`, a Demolish button under `HUD.buildingInfoPanel`, a Restart button under `HUD.endScreen` (also registers the current scene in Build Settings, required for `GameManager.RestartGame()`'s scene reload to work), and populates `NPCController.allProductionBuildingTypes` with all 5 production buildings (internally: Populate Shop Panel → Auto-Wire Shop Icons → Create Minimum Reserve Slider → Create Cancel Placement Button → Create Demolish Button → Create Restart Button → Auto-Wire NPC Building Pool). Reposition/style the new UI as needed, then save the scene.
 5. Assign the generated `GameSettings` asset to `GameManager` in the Inspector (everything else `ProjectSetup` created is already cross-referenced)
+6. Run `Assets/Scripts/Editor/MainMenuSetup.cs`'s `BeyondAllRoyal → 3 - Create Main Menu Scene` — builds a standalone `MainMenu` scene from scratch (Camera, EventSystem, Canvas, title, AI difficulty dropdown, Singleplayer/Multiplayer buttons) and registers it as build index 0. Can be run any time after step 1 (doesn't depend on `PlayScene`'s GameObjects). Reposition/style the UI as needed, then save the scene.
+7. Run `Assets/Scripts/Editor/ThemeSetup.cs`'s `BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene` once `PlayScene`'s HUD/BuildingShopPanel are wired — recolors HUD's buttons/text/panel backgrounds/sliders and the shop panel to `UITheme`'s dark-purple palette (the same palette `MainMenuSetup` uses for `MainMenu`). Unlike Step 2/3, this force-reapplies colors to whatever's already referenced, so it's safe to re-run any time (e.g. after tweaking `UITheme`) without deleting/recreating anything first.
 
 ## Code Architecture
 
@@ -101,6 +105,14 @@ All runtime data lives in **ScriptableObjects** (`Assets/Scripts/Data/`). MonoBe
 ### Key singletons
 
 `GameManager`, `ResourceManager`, `MapGrid`, `HUD` — all follow the standard Unity singleton pattern (destroy duplicate on `Awake`). `GameManager.RestartGame()` reloads the active scene, which resets every MonoBehaviour singleton for free (none are `DontDestroyOnLoad`); it also explicitly clears `BuildingRegistry`/`UnitRegistry`, since those are plain static lists that a scene reload alone wouldn't touch.
+
+### Main menu (`Scripts/UI/MainMenuController.cs`, `Scripts/Core/GameSetup.cs`)
+
+`MainMenuController` lives in the `MainMenu` scene (build index 0): its Singleplayer button writes the chosen `AIDifficulty` (from a dropdown) and `GameMode.Singleplayer` to `GameSetup`, then loads `PlayScene`; its Multiplayer button is present but `interactable = false` (not implemented). `GameSetup` is a plain static class (like `BuildingRegistry`/`UnitRegistry`) rather than a `DontDestroyOnLoad` singleton, since it only needs to survive the one scene transition — it defaults to `Singleplayer`/`Medium` so `PlayScene` can still be tested directly in the Editor without going through the menu first. `NPCController` reads `GameSetup.Difficulty` at `Awake`.
+
+### UI theme (`Scripts/Editor/UITheme.cs`)
+
+A dark-purple color palette shared by `MainMenuSetup` (`MainMenu`) and `ThemeSetup` (`PlayScene`), so both scenes are styled from one source of truth instead of each keeping its own copy. Buttons/dropdowns are recolored via `Selectable.colors` (`UITheme.ApplyButtonColors`), not by setting the `Image` color directly — Unity's ColorTint transition overwrites `Image.color` with `colors.normalColor` on the first state change, so a direct color set gets silently clobbered at runtime.
 
 ## Version Control
 

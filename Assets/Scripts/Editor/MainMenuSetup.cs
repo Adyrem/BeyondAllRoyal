@@ -1,0 +1,228 @@
+using System.IO;
+using System.Linq;
+using TMPro;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+// Run from the Unity menu: BeyondAllRoyal → 3 - Create Main Menu Scene
+// Builds a new MainMenu scene from scratch (Camera, EventSystem, Canvas, title,
+// AI difficulty dropdown, Singleplayer/Multiplayer buttons) wired to a
+// MainMenuController, saves it to Assets/Scenes/MainMenu.unity, and registers
+// it as build index 0 — PlayScene is loaded from it once Singleplayer is picked.
+public static class MainMenuSetup
+{
+    private const string ScenePath     = "Assets/Scenes/MainMenu.unity";
+    private const string PlayScenePath = "Assets/Scenes/PlayScene.unity";
+
+    [MenuItem("BeyondAllRoyal/3 - Create Main Menu Scene")]
+    public static void CreateMainMenuScene()
+    {
+        if (File.Exists(ScenePath))
+        {
+            Debug.LogWarning($"[BeyondAllRoyal] '{ScenePath}' already exists — delete it first if you want " +
+                              "to regenerate it, so this doesn't clobber any scene edits made in the Editor.");
+            return;
+        }
+
+        // Prompts to save the currently open scene if it has unsaved changes,
+        // rather than silently discarding them when we open a new empty scene.
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            return;
+
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+        BuildCameraAndEventSystem();
+        var canvas       = BuildCanvas();
+        var controllerGO = new GameObject("MainMenuController");
+        var controller   = controllerGO.AddComponent<MainMenuController>();
+
+        BuildTitle(canvas.transform);
+        var dropdown            = BuildDifficultyDropdown(canvas.transform);
+        var singleplayerButton  = BuildButton(canvas.transform, "SingleplayerButton", "Singleplayer",
+            new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(420f, 100f), UITheme.Accent, Color.white);
+        var multiplayerButton   = BuildButton(canvas.transform, "MultiplayerButton", "Multiplayer (Coming Soon)",
+            new Vector2(0.5f, 0.5f), new Vector2(0f, -180f), new Vector2(420f, 100f), UITheme.Disabled, UITheme.DisabledText);
+
+        var so = new SerializedObject(controller);
+        so.FindProperty("difficultyDropdown").objectReferenceValue = dropdown;
+        so.FindProperty("singleplayerButton").objectReferenceValue = singleplayerButton;
+        so.FindProperty("multiplayerButton").objectReferenceValue  = multiplayerButton;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene, ScenePath);
+        AssetDatabase.Refresh();
+
+        RegisterScenesInBuildSettings();
+
+        Debug.Log($"[BeyondAllRoyal] Created MainMenu scene at '{ScenePath}' and registered it as build index 0. " +
+                  "Reposition/style the UI as needed, then save the scene.");
+    }
+
+    private static void BuildCameraAndEventSystem()
+    {
+        var camGO = new GameObject("Main Camera", typeof(Camera));
+        camGO.tag = "MainCamera";
+        var cam = camGO.GetComponent<Camera>();
+        cam.orthographic     = true;
+        cam.orthographicSize = 5f;
+        cam.backgroundColor  = UITheme.Background;
+        camGO.transform.position = new Vector3(0f, 0f, -10f);
+
+        // The project uses the new Input System exclusively (see InputHelper.cs),
+        // so the UI event system needs InputSystemUIInputModule, not the legacy one.
+        new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+    }
+
+    private static Canvas BuildCanvas()
+    {
+        var canvasGO = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        var canvas = canvasGO.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+        var scaler = canvasGO.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode        = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1080f, 1920f); // portrait, mobile-first per CLAUDE.md
+        scaler.matchWidthOrHeight  = 0.5f;
+
+        return canvas;
+    }
+
+    private static void BuildTitle(Transform parent)
+    {
+        var go = new GameObject("Title", typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot     = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, -220f);
+        rect.sizeDelta = new Vector2(1000f, 200f);
+
+        var text = go.AddComponent<TextMeshProUGUI>();
+        text.text      = "BeyondAllRoyal";
+        text.fontSize  = 100f;
+        text.alignment = TextAlignmentOptions.Center;
+        text.color     = UITheme.Accent;
+    }
+
+    private static TMP_Dropdown BuildDifficultyDropdown(Transform parent)
+    {
+        var label = new GameObject("DifficultyLabel", typeof(RectTransform));
+        label.transform.SetParent(parent, false);
+        var labelRect = label.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot     = new Vector2(0.5f, 0f);
+        labelRect.anchoredPosition = new Vector2(0f, 220f);
+        labelRect.sizeDelta = new Vector2(400f, 46f);
+        var labelText = label.AddComponent<TextMeshProUGUI>();
+        labelText.text      = "AI Difficulty";
+        labelText.fontSize  = 36f;
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.color     = UITheme.MutedText;
+
+        var dropdownGO = TMP_DefaultControls.CreateDropdown(new TMP_DefaultControls.Resources());
+        dropdownGO.name = "DifficultyDropdown";
+        dropdownGO.transform.SetParent(parent, false);
+        var rect = dropdownGO.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot     = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, 160f);
+        rect.sizeDelta = new Vector2(400f, 80f);
+
+        // TMP_DefaultControls sizes its caption/item text for the small default
+        // rect — bump both so they don't look tiny inside the enlarged dropdown.
+        var captionText = dropdownGO.transform.Find("Label")?.GetComponent<TextMeshProUGUI>();
+        if (captionText != null) { captionText.fontSize = 30f; captionText.color = Color.white; }
+
+        var itemText = dropdownGO.transform.Find("Template/Viewport/Content/Item/Item Label")?.GetComponent<TextMeshProUGUI>();
+        if (itemText != null) { itemText.fontSize = 28f; itemText.color = Color.white; }
+
+        // The dropdown box itself, and the opened list's viewport background —
+        // both default to a plain white Image, tinted here to match the theme.
+        var tmpDropdown = dropdownGO.GetComponent<TMP_Dropdown>();
+        var dropdownColors = tmpDropdown.colors;
+        dropdownColors.normalColor      = UITheme.Panel;
+        dropdownColors.highlightedColor = UITheme.Hover(UITheme.Panel);
+        dropdownColors.pressedColor     = UITheme.Pressed(UITheme.Panel);
+        dropdownColors.selectedColor    = UITheme.Panel;
+        tmpDropdown.colors = dropdownColors;
+
+        var viewportImage = dropdownGO.transform.Find("Template/Viewport")?.GetComponent<Image>();
+        if (viewportImage != null) viewportImage.color = UITheme.Panel;
+
+        var itemBackground = dropdownGO.transform.Find("Template/Viewport/Content/Item/Item Background")?.GetComponent<Image>();
+        if (itemBackground != null) itemBackground.color = UITheme.Panel;
+
+        var itemCheckmark = dropdownGO.transform.Find("Template/Viewport/Content/Item/Item Checkmark")?.GetComponent<Image>();
+        if (itemCheckmark != null) itemCheckmark.color = UITheme.Accent;
+
+        var arrow = dropdownGO.transform.Find("Arrow")?.GetComponent<Image>();
+        if (arrow != null) arrow.color = UITheme.Accent;
+
+        // MainMenuController.Awake() populates Easy/Medium/Hard at runtime; no
+        // need to author options here.
+        return tmpDropdown;
+    }
+
+    private static Button BuildButton(Transform parent, string goName, string label,
+        Vector2 anchor, Vector2 anchoredPosition, Vector2 sizeDelta, Color fillColor, Color textColor)
+    {
+        var buttonGO = DefaultControls.CreateButton(new DefaultControls.Resources());
+        buttonGO.name = goName;
+        buttonGO.transform.SetParent(parent, false);
+
+        var rect = buttonGO.GetComponent<RectTransform>();
+        rect.anchorMin = anchor;
+        rect.anchorMax = anchor;
+        rect.pivot     = anchor;
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = sizeDelta;
+
+        var button = buttonGO.GetComponent<Button>();
+        UITheme.ApplyButtonColors(button, fillColor);
+
+        // The default label child is legacy Text ("Button") — replace with TMP,
+        // matching the rest of the project's UI (see ProjectSetup.CreateHudChildButton).
+        var legacyText = buttonGO.transform.Find("Text (Legacy)");
+        if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+
+        var labelGO = new GameObject("Label", typeof(RectTransform));
+        labelGO.transform.SetParent(buttonGO.transform, false);
+        var labelRect = labelGO.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        var labelText = labelGO.AddComponent<TextMeshProUGUI>();
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.fontSize  = 34f;
+        labelText.text      = label;
+        labelText.color     = textColor;
+
+        return button;
+    }
+
+    // MainMenu becomes build index 0 (the scene the game actually launches
+    // with); PlayScene is appended if it isn't registered yet, otherwise left
+    // wherever it already was (just shifted down since MainMenu is inserted
+    // at the front).
+    private static void RegisterScenesInBuildSettings()
+    {
+        var scenes = EditorBuildSettings.scenes.ToList();
+        scenes.RemoveAll(s => s.path == ScenePath);
+        scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
+
+        if (File.Exists(PlayScenePath) && scenes.All(s => s.path != PlayScenePath))
+            scenes.Add(new EditorBuildSettingsScene(PlayScenePath, true));
+
+        EditorBuildSettings.scenes = scenes.ToArray();
+    }
+}
