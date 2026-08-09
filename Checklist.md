@@ -25,6 +25,10 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 - [ ] Multiplayer — button present but non-interactive; not implemented (see Multiplayer (Post-MVP))
 - [x] Dark purple UI theme (`UITheme.cs`) applied to `MainMenu` (baked in by `MainMenuSetup`) and `PlayScene`'s HUD/shop panel via `BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene` (`ThemeSetup.cs`) — re-runnable any time (unlike Steps 2/3) since it force-recolors whatever HUD/BuildingShopPanel already reference instead of skipping already-wired UI; still needs to actually be run + scene saved
 
+## Testing
+
+- [x] `TestScene` — a duplicate of `PlayScene` (via `AssetDatabase.CopyAsset`, so it inherits every manually-wired reference for free) created by `BeyondAllRoyal → 5 - Create Test Scene` (`TestSceneSetup.cs`), with a `TestSceneBootstrap` component that pre-places a starter loadout (5x Metal Factory, 3x Tesla Tower, 1x Barracks, 1x GunRange — economy-heavy so testing doesn't stall waiting on metal) for both Player and NPC once the match starts (free, not paid for through `ResourceManager`, same as how `MapGrid.PlaceHQs` places the HQ) — registered in Build Settings; open it directly and hit Play instead of building an economy up from scratch every time. Re-running Step 5 once `TestScene` already exists just refreshes the loadout in place (re-reads `StarterBuildingNames`) instead of recreating the scene, so it's safe to re-run any time the list is tuned
+
 ## Map System
 
 - [x] Building slot grid — each side has ~63 free slots (9 cols × 8 rows; back 3 rows reserved for HQ, 3×3); columns changed from 8 to 9 so the HQ's 3-wide footprint centers exactly instead of sitting one slot off-center — re-run `ProjectSetup` Step 1 to update the existing `DefaultMap` asset
@@ -45,7 +49,7 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 ## Buildings
 
 - [x] Base `Building` class (health, energy buffer, owner, slot size)
-- [x] HQ building (win-condition target, metal + energy generation, self-defense auto-attack so a rush can't end the game instantly — default `attacksPerSecond` = 5; needs `attackDamage`/`attackRange`/`attacksPerSecond`/`energyCostPerShot` populated on the `HQData` asset; re-run `ProjectSetup` Step 1)
+- [x] HQ building (win-condition target, metal + energy generation, self-defense auto-attack so a rush can't end the game instantly — default `attacksPerSecond` = 5/3 (≈1.67), cut by a factor of 3 from the original 5 since it was firing way too fast; needs `attackDamage`/`attackRange`/`attacksPerSecond`/`energyCostPerShot` populated on the `HQData` asset; re-run `ProjectSetup` Step 1)
 - [x] Base `ProductionBuilding` class (continuous production loop, start/stop)
 - [x] 5 unit-production buildings (data + prefabs created)
 - [x] Machinegun Turret (auto-attacks; counters Soldier, Heavy Gunner)
@@ -65,8 +69,12 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 
 - [x] Base `Unit` class (health, damage, attack range, speed, owner)
 - [x] Autonomous movement: target priority is enemy units on our own side of the map (home defense) > buildings in attack range > units in attack range > buildings out of range > units out of range (units still fight back when attacked, not just when nothing else is around)
+- [x] When assaulting a building, units keep advancing between attacks instead of holding at the range boundary — stationary buildings can't be overrun by mistake, so there's no downside to closing the distance; they stop once they reach the building's own footprint edge (`UnitAI.BuildingStoppingDistance`). Unit-vs-unit combat still holds at range, unchanged
 - [x] Auto-attack when in range (no player input)
+- [x] Shoot sound effect on every attack (`Unit.PlayShootSfx`, `GameSettings.unitShootSfx`) — same clip for all units, pitched by the shooting unit's own `maxHealth` so bigger units sound deeper and smaller ones sound higher (`shootPitchReferenceMinHealth`/`MaxHealth` → `shootPitchForMinHealth`/`MaxHealth`, defaults 50/350 → 1.3/0.7) — since audio can't be procedurally generated like the sprites, `ProjectSetup` Step 1 auto-wires it from `Assets/Resources/shot.mp3` by convention if present (leaves it alone otherwise, so a manual Inspector assignment isn't clobbered); re-run Step 1 to seed the pitch fields and pick up the clip
 - [x] Death / cleanup on health reaching zero
+- [x] Death explosion (`Unit.Explode`): flat splash damage (no counter multiplier) to all units in range — friendly and enemy — but only to enemy buildings; damage/radius scale with the dying unit's own `maxHealth` via `GameSettings.explosionDamageFraction`/`explosionRadiusPerHealth` (defaults 0.3, 0.01); plays a placeholder expanding ring (`ExplosionSpawner`/`ExplosionEffect`) and `GameSettings.explosionSfx`, auto-wired by `ProjectSetup` Step 1 from `Assets/Resources/splosion.mp3` by convention if present — re-run Step 1 to seed the damage/radius fields and pick up the clip
+- [x] Fixed a Unity (not just game) crash from unit explosions: a chain reaction could hit an already-dying unit again before `Destroy` removed it, re-entering `Die()` → `Explode()` indefinitely until the stack overflowed — most likely to happen right as a match ends and a cluster of units die together. `Unit` now guards with `isDead` so a unit can only die once
 - [x] 5 unit types defined (Soldier, Heavy Gunner, Explosive Specialist, Hovercraft, Heavy Tank); default move speeds set to 1/4 of the original design values — re-run `ProjectSetup` Step 1 to update existing `UnitData` assets
 - [x] Unit metal costs lowered and energy costs (build time) raised a bit across the board — metal is the tighter bottleneck since it's a shared pool across all production buildings, energy isn't — re-run `ProjectSetup` Step 1 to update existing `UnitData` assets
 
@@ -101,6 +109,7 @@ Derived from [Requirements.md](Requirements.md) and design decisions. Do not edi
 
 - [x] Health bar on all units and buildings (red → green gradient, auto-generated by ProjectSetup)
 - [x] Production bar on production buildings shows the raw energy buffer relative to its capacity (not just progress toward the current unit, which used to freeze while paused or waiting on a metal reservation, and could jump instantly when there was already a surplus stored), with a yellow indicator tick marking the energy threshold needed for one unit (`HealthBar.SetIndicator`) — re-run `ProjectSetup` Step 1 to backfill the indicator onto already-created production building prefabs. Also fixed the bar being frozen at its stale prefab default (full bar, indicator at 100%) for the entire construction phase — it was gated behind `IsConstructed`, so it only got its first real update the instant construction finished, snapping down and looking exactly like a unit had just been produced (none was)
+- [x] Fixed the energy bar only ever appearing to fill when energy income outpaced metal income: `TickProduction` was draining a little energy out of the buffer every single frame as it trickled in, instead of letting the buffer accumulate up to `energyCostPerUnit` first and consuming it all at once — same total production time, but now the bar actually visibly fills toward the indicator instead of sitting pinned near zero
 - [x] Cancel placement with Escape/right-click (desktop) or the new Cancel button under `placementInfoPanel` (touch — Escape/right-click don't exist on mobile, so placement was previously uncancelable there; automated via `BeyondAllRoyal → 2 - Wire Scene`, still needs to actually be run + scene saved)
 - [x] Placeholder sprite art for all units and buildings (procedurally generated, `Assets/Sprites/`; higher native resolution for multi-tile buildings so they stay crisp when stretched)
 - [x] Buildings cycle between two sprite frames on a timer (`Building.spriteCycleInterval`); same sprite doubles as the build-menu icon

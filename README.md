@@ -18,6 +18,7 @@ For the full game design (resources, map, units, buildings), see [CLAUDE.md](CLA
    - `BeyondAllRoyal → 2 - Wire Scene` — run once `GameManager`/`HUD`/`MapGrid`/`BuildingShopPanel`/`NPCController` exist in-scene; populates the shop panel, minimum-reserve slider, Cancel/Demolish/Restart buttons, and the NPC's building pool
    - `BeyondAllRoyal → 3 - Create Main Menu Scene` — builds the standalone `MainMenu` scene from scratch and registers it as build index 0; can be run any time after step 1
    - `BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene` — recolors `PlayScene`'s HUD/shop panel to match `MainMenu`'s theme; re-runnable any time, unlike steps 2/3
+   - `BeyondAllRoyal → 5 - Create Test Scene` — duplicates `PlayScene` into `TestScene` and pre-places starter buildings for both sides, for quick testing without building an economy up from scratch; run once `PlayScene` itself is fully set up
 4. Wire the remaining scene references by hand (HUD panels, `MapGrid.slotPrefab`, shop button icons, etc. — see the checklist for what's still manual).
 
 ## Project layout
@@ -31,8 +32,11 @@ Assets/Scripts/
   Map/        MapGrid, BuildingSlot
   AI/         NPCController (MVP opponent)
   UI/         HUD, shop panel, health bars, main menu controller
-  Editor/     ProjectSetup/MainMenuSetup/ThemeSetup — generate and wire ScriptableObjects, prefabs,
-              sprites, and both scenes' UI, run from the Unity menu; UITheme holds the shared palette
+  Effects/    AttackBeamSpawner, ExplosionSpawner, ShootSfxSpawner — placeholder VFX/SFX
+  Testing/    TestSceneBootstrap — pre-places starter buildings in TestScene
+  Editor/     ProjectSetup/MainMenuSetup/ThemeSetup/TestSceneSetup — generate and wire ScriptableObjects,
+              prefabs, sprites, and all three scenes' UI, run from the Unity menu; UITheme holds the
+              shared palette
 ```
 
 Architecture details (data-driven stats, singleton conventions, building/unit hierarchy) are documented in [CLAUDE.md](CLAUDE.md).
@@ -51,4 +55,4 @@ A blocked commit that's a genuine false positive can be bypassed with `git commi
 
 - Don't hand-edit Unity binary/YAML assets (`.unity`, `.prefab`, `.asset`, `.mat`) outside the Editor — it corrupts references. Only `.cs` and plain text files are safe to edit directly.
 - All gameplay stats live in ScriptableObjects (`Assets/Scripts/Data/`); MonoBehaviours should read from them, never hard-code values.
-- `Assets/Scripts/Editor/ProjectSetup.cs` is the source of truth for how ScriptableObjects, prefabs, and sprites are generated/wired — re-run its menu items after pulling changes that touch unit/building data or sprites. `MainMenuSetup.cs` and `ThemeSetup.cs` do the same for the `MainMenu` scene and the dark-purple theme, respectively.
+- `Assets/Scripts/Editor/ProjectSetup.cs` is the source of truth for how ScriptableObjects, prefabs, and sprites are generated/wired — re-run its menu items after pulling changes that touch unit/building data or sprites. `MainMenuSetup.cs`, `ThemeSetup.cs`, and `TestSceneSetup.cs` do the same for the `MainMenu` scene, the dark-purple theme, and `TestScene`, respectively.

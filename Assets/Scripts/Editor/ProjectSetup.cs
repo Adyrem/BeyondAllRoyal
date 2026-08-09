@@ -13,6 +13,7 @@ using UnityEngine.UI;
 //   BeyondAllRoyal → 2 - Wire Scene             (run once GameManager/HUD/MapGrid/BuildingShopPanel/NPCController exist in-scene)
 //   BeyondAllRoyal → 3 - Create Main Menu Scene (see MainMenuSetup.cs; standalone, can run any time after Step 1)
 //   BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene (see ThemeSetup.cs; re-runnable any time, unlike Step 2)
+//   BeyondAllRoyal → 5 - Create Test Scene (see TestSceneSetup.cs; duplicates PlayScene, run any time after it exists)
 public static class ProjectSetup
 {
     // -------------------------------------------------------------------------
@@ -50,6 +51,7 @@ public static class ProjectSetup
         Debug.Log("[BeyondAllRoyal] Scene wiring done. Reposition/style the new UI as needed, then save the scene.");
     }
 
+    const string AudioPath   = "Assets/Resources";
     const string SOUnits     = "Assets/ScriptableObjects/Units";
     const string SOBuildings = "Assets/ScriptableObjects/Buildings";
     const string SOMaps      = "Assets/ScriptableObjects/Maps";
@@ -85,6 +87,22 @@ public static class ProjectSetup
         settings.strongMultiplier           = 1.5f;
         settings.weakMultiplier             = 0.5f;
         settings.counterChart               = chart;
+        settings.explosionDamageFraction    = 0.3f;
+        settings.explosionRadiusPerHealth   = 0.01f;
+        settings.shootPitchReferenceMinHealth = 50f;
+        settings.shootPitchReferenceMaxHealth = 350f;
+        settings.shootPitchForMinHealth        = 1.3f;
+        settings.shootPitchForMaxHealth        = 0.7f;
+
+        // Sound effects can't be procedurally generated like sprites — auto-wired
+        // by convention if present at these paths, left alone otherwise so a
+        // manual Inspector assignment elsewhere isn't clobbered.
+        var explosionClip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{AudioPath}/splosion.mp3");
+        if (explosionClip != null) settings.explosionSfx = explosionClip;
+
+        var shootClip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{AudioPath}/shot.mp3");
+        if (shootClip != null) settings.unitShootSfx = shootClip;
+
         EditorUtility.SetDirty(settings);
 
         // Units                        type                              name                    hp     dmg  range  atkSpd  spd  metal  nrg
@@ -145,7 +163,7 @@ public static class ProjectSetup
         hq.injectionRange              = 8f;
         hq.attackDamage                = 20f;
         hq.attackRange                 = 6f;
-        hq.attacksPerSecond            = 5f;
+        hq.attacksPerSecond            = 5f / 3f; // was 5 — cut to a third, it was firing way too fast
         hq.energyCostPerShot           = 10f;
         EditorUtility.SetDirty(hq);
 

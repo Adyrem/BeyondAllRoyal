@@ -16,3 +16,6 @@ MonoBehaviour:
   strongMultiplier: 1.5
   weakMultiplier: 0.5
   counterChart: {fileID: 11400000, guid: 477d95dcf58e6c08eb5bda9d2e4f18e5, type: 2}
+  explosionDamageFraction: 0.3
+  explosionRadiusPerHealth: 0.01
+  explosionSfx: {fileID: 0}

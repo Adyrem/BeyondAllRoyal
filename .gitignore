@@ -10,12 +10,17 @@
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
 /[Rr]ecordings/
+/[Aa]ssets/_Recovery/
 
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 !/[Ll]ibrary/PackageCache/
 
 # Never ignore Asset meta data
 !/[Aa]ssets/**/*.meta
+
+# ...except the crash-recovery folder itself has nothing underneath to keep a
+# reference to once ignored, so its own .meta file would just be dead weight.
+/[Aa]ssets/_Recovery.meta
 
 # Uncomment this line if you wish to ignore the asset store tools plugin
 # /[Aa]ssets/AssetStoreTools*

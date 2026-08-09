@@ -76,9 +76,16 @@ public class UnitAI : MonoBehaviour
     private void HandleBuildingAssault(Building target)
     {
         float dist = Vector2.Distance(transform.position, target.transform.position);
+
         if (dist <= unit.AttackRange)
         {
             if (attackCooldown <= 0f) AttackBuilding(target);
+
+            // Buildings don't move, so keep pressing the attack between shots
+            // instead of just holding at the range boundary, until right up
+            // against the building's edge.
+            if (dist > BuildingStoppingDistance(target))
+                MoveToward(target.transform.position);
         }
         else
         {
@@ -86,11 +93,20 @@ public class UnitAI : MonoBehaviour
         }
     }
 
+    // Approximates the building's footprint edge as a circle, so units stop
+    // just outside it instead of walking into/through its sprite.
+    private float BuildingStoppingDistance(Building target)
+    {
+        var size = target.Data.slotSize;
+        return Mathf.Max(size.x, size.y) * MapGrid.Instance.SlotVisualSize * 0.5f;
+    }
+
     private void AttackUnit(Unit target)
     {
         float multiplier = CounterSystem.GetDamageMultiplier(unit.EntityType, target.EntityType);
         target.TakeDamage(unit.Damage * multiplier);
         unit.FlashShootingSprite();
+        unit.PlayShootSfx();
         AttackBeamSpawner.Spawn(transform.position, target.transform.position, unit.Owner);
         attackCooldown = 1f / unit.AttacksPerSecond;
     }
@@ -103,6 +119,7 @@ public class UnitAI : MonoBehaviour
             damage *= CounterSystem.GetDamageMultiplier(unit.EntityType, entityType.Value);
         building.TakeDamage(damage);
         unit.FlashShootingSprite();
+        unit.PlayShootSfx();
         AttackBeamSpawner.Spawn(transform.position, building.transform.position, unit.Owner);
         attackCooldown = 1f / unit.AttacksPerSecond;
     }

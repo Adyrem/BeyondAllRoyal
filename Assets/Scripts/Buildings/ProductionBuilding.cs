@@ -5,7 +5,6 @@ public class ProductionBuilding : Building
     [SerializeField] private HealthBar productionBar;
 
     private ProductionBuildingData productionData;
-    private float energySpentOnCurrentUnit;
     private bool metalReserved;
 
     public bool IsProducing { get; private set; } = true;
@@ -50,19 +49,18 @@ public class ProductionBuilding : Building
             metalReserved = true;
         }
 
-        float needed = productionData.unitToProduced.energyCostPerUnit - energySpentOnCurrentUnit;
-        float use = Mathf.Min(EnergyBuffer, needed);
-        TryConsumeEnergy(use);
-        energySpentOnCurrentUnit += use;
-
+        // Let the buffer accumulate from the passive trickle (Building.Update)
+        // up to the per-unit threshold before spending anything — previously
+        // this drained EnergyBuffer by a little bit every single frame as soon
+        // as it arrived, which kept the buffer (and its progress bar) pinned
+        // near zero the whole time instead of visibly filling toward the
+        // Indicator tick.
         float required = productionData.unitToProduced.energyCostPerUnit;
+        if (EnergyBuffer < required) return;
 
-        if (energySpentOnCurrentUnit >= required)
-        {
-            SpawnUnit();
-            energySpentOnCurrentUnit = 0f;
-            metalReserved = false;
-        }
+        TryConsumeEnergy(required);
+        SpawnUnit();
+        metalReserved = false;
     }
 
     private void SpawnUnit()
