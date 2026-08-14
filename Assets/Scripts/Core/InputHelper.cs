@@ -17,11 +17,32 @@ public static class InputHelper
         return mouse != null && mouse.leftButton.wasPressedThisFrame;
     }
 
-    // Screen position of the active touch or mouse cursor
+    // True on the frame a finger lifts or the left mouse button is released
+    public static bool TapEnded()
+    {
+        var touch = Touchscreen.current;
+        if (touch != null && touch.primaryTouch.press.wasReleasedThisFrame) return true;
+        var mouse = Mouse.current;
+        return mouse != null && mouse.leftButton.wasReleasedThisFrame;
+    }
+
+    // True for every frame a finger/button is held down (not just the first)
+    public static bool IsPressed()
+    {
+        var touch = Touchscreen.current;
+        if (touch != null && touch.primaryTouch.press.isPressed) return true;
+        var mouse = Mouse.current;
+        return mouse != null && mouse.leftButton.isPressed;
+    }
+
+    // Screen position of the active touch or mouse cursor. Also valid on the
+    // exact frame a touch ends (press.isPressed is already false by then, but
+    // the touch's last position is still readable) — callers that react to
+    // TapEnded() need this same frame's position, not a stale fallback.
     public static Vector2 TapPosition()
     {
         var touch = Touchscreen.current;
-        if (touch != null && touch.primaryTouch.press.isPressed)
+        if (touch != null && (touch.primaryTouch.press.isPressed || touch.primaryTouch.press.wasReleasedThisFrame))
             return touch.primaryTouch.position.ReadValue();
         var mouse = Mouse.current;
         return mouse?.position.ReadValue() ?? Vector2.zero;

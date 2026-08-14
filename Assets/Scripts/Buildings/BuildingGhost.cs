@@ -41,16 +41,14 @@ public class BuildingGhost : MonoBehaviour
         return fullBleedSprite;
     }
 
-    public void Show(BuildingData data)
-    {
-        gameObject.SetActive(true);
-        UpdateScale(data);
-    }
-
     public void Hide() => gameObject.SetActive(false);
 
+    // Also (re)activates the ghost — callers don't need a separate Show(),
+    // since BuildingPlacer only ever wants a state update paired with the
+    // ghost becoming visible.
     public void UpdateState(Vector3 worldPos, bool isValid, BuildingData data)
     {
+        gameObject.SetActive(true);
         transform.position = worldPos;
         sr.color           = isValid ? ValidColor : InvalidColor;
         UpdateScale(data);

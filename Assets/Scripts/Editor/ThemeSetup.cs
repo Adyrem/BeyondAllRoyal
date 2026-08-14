@@ -4,15 +4,14 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
-// Run from the Unity menu: BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene
-// Unlike ProjectSetup's Step 2 (which only creates missing UI and skips
+// Called by ProjectSetup.SetupScenes() (BeyondAllRoyal → 2 - Setup Scenes).
+// Unlike the rest of that step (which only creates missing UI and skips
 // anything already wired), this force-reapplies UITheme's colors to whatever
 // HUD/BuildingShopPanel already reference — safe to re-run any time (e.g.
 // after tweaking UITheme) without deleting/recreating anything first.
 // Requires HUD (and, for shop styling, BuildingShopPanel) in the open scene.
 public static class ThemeSetup
 {
-    [MenuItem("BeyondAllRoyal/4 - Apply Dark Purple Theme to Play Scene")]
     public static void ApplyPlaySceneTheme()
     {
         var hud = Object.FindAnyObjectByType<HUD>(FindObjectsInactive.Include);
@@ -38,7 +37,7 @@ public static class ThemeSetup
         StyleButton(so, "toggleProductionButton");
         StyleButton(so, "cancelPlacementButton");
         StyleButton(so, "demolishButton");
-        StyleButton(so, "restartButton");
+        StyleButton(so, "mainMenuButton");
 
         StylePanelBackground(so, "endScreen");
         StylePanelBackground(so, "buildingInfoPanel");

@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **BeyondAllRoyal** is a mobile-first 2D RTS game built in **Unity**, inspired by Beyond All Reason and Clash Royale. Futuristic theme.
 
-- **Win condition:** Destroy the enemy HQ; a Restart button on the end screen (`GameManager.RestartGame()`) reloads the scene for a rematch
+- **Win condition:** Destroy the enemy HQ; a Main Menu button on the end screen (`GameManager.ReturnToMainMenu()`) returns to the main menu
 - **Game mode (MVP):** 1v1 vs NPC; multiplayer planned post-MVP. A `MainMenu` scene (build index 0) lets the player pick Singleplayer or Multiplayer (Multiplayer is a disabled placeholder button) and an AI difficulty (Easy/Medium/Hard) before loading `PlayScene`
 - **Unit behavior:** Fully autonomous — target priority is enemy units that have pushed onto our own side of the map > buildings in attack range > units in attack range > buildings out of range > units out of range; no micro required
 - **Production:** Unit-producing buildings continuously produce units unless manually stopped
@@ -58,14 +58,11 @@ The `AIDifficulty` picked on the main menu (`GameSetup.Difficulty`) scales all o
 
 1. Open Unity Hub → New Project → **2D (URP)** → set location to this folder
 2. Unity generates `Packages/` and `ProjectSettings/` — all scripts are already in `Assets/Scripts/`
-3. In the scene, create GameObjects for `GameManager`, `ResourceManager`, `MapGrid`, `HUD`, `NPCController`, and add a `BuildingShopPanel` under HUD's Canvas
+3. In `PlayScene`, create GameObjects for `GameManager`, `ResourceManager`, `MapGrid`, `HUD`, `NPCController`, and add a `BuildingShopPanel` under HUD's Canvas
 4. Run `Assets/Scripts/Editor/ProjectSetup.cs`'s two menu items, in order:
    - `BeyondAllRoyal → 1 - Setup Project Assets` — no scene needed; creates/wires ScriptableObjects, prefabs, and sprites (internally: ScriptableObjects → Prefabs → Sprites)
-   - `BeyondAllRoyal → 2 - Wire Scene` — run once the GameObjects from step 3 exist; populates the shop panel with one button per placeable building, backfills any missing shop icons, creates the minimum-reserve slider under HUD's Canvas, adds a Cancel button under `HUD.placementInfoPanel`, a Demolish button under `HUD.buildingInfoPanel`, a Restart button under `HUD.endScreen` (also registers the current scene in Build Settings, required for `GameManager.RestartGame()`'s scene reload to work), and populates `NPCController.allProductionBuildingTypes` with all 5 production buildings (internally: Populate Shop Panel → Auto-Wire Shop Icons → Create Minimum Reserve Slider → Create Cancel Placement Button → Create Demolish Button → Create Restart Button → Auto-Wire NPC Building Pool). Reposition/style the new UI as needed, then save the scene.
+   - `BeyondAllRoyal → 2 - Setup Scenes` — run once the GameObjects from step 3 exist **and `PlayScene` is the open scene**. A single consolidated entry point for everything scene-related, so there's just this one step to re-run instead of several: wires `PlayScene` (shop panel, minimum-reserve slider, Cancel/Demolish/Main Menu buttons, NPC building pool — see `ProjectSetup.WireScene`), applies the dark-purple theme (`ThemeSetup.ApplyPlaySceneTheme`), creates `MainMenu` if it doesn't exist yet (`MainMenuSetup.CreateMainMenuScene`), and creates or refreshes `TestScene` (`TestSceneSetup.CreateTestScene`) — then reopens `PlayScene` so you land back where you started. Safe to re-run any time; it saves `PlayScene` and only ever creates `MainMenu` once (delete it first to regenerate). Reposition/style the UI as needed, then save the scene.
 5. Assign the generated `GameSettings` asset to `GameManager` in the Inspector (everything else `ProjectSetup` created is already cross-referenced)
-6. Run `Assets/Scripts/Editor/MainMenuSetup.cs`'s `BeyondAllRoyal → 3 - Create Main Menu Scene` — builds a standalone `MainMenu` scene from scratch (Camera, EventSystem, Canvas, title, AI difficulty dropdown, Singleplayer/Multiplayer buttons) and registers it as build index 0. Can be run any time after step 1 (doesn't depend on `PlayScene`'s GameObjects). Reposition/style the UI as needed, then save the scene.
-7. Run `Assets/Scripts/Editor/ThemeSetup.cs`'s `BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene` once `PlayScene`'s HUD/BuildingShopPanel are wired — recolors HUD's buttons/text/panel backgrounds/sliders and the shop panel to `UITheme`'s dark-purple palette (the same palette `MainMenuSetup` uses for `MainMenu`). Unlike Step 2/3, this force-reapplies colors to whatever's already referenced, so it's safe to re-run any time (e.g. after tweaking `UITheme`) without deleting/recreating anything first.
-8. Run `Assets/Scripts/Editor/TestSceneSetup.cs`'s `BeyondAllRoyal → 5 - Create Test Scene` once `PlayScene` is fully set up and saved — duplicates it to a new `TestScene` (via `AssetDatabase.CopyAsset`, so it inherits every manually-wired reference for free) and adds a `TestSceneBootstrap` that pre-places an economy-heavy starter loadout (`StarterBuildingNames`: 5x Metal Factory, 3x Tesla Tower, 1x Barracks, 1x GunRange) for both sides once the match starts, for quick testing without building an economy up from scratch. Registers `TestScene` in Build Settings; open it directly and hit Play to use it. Unlike Step 3, re-running this once `TestScene` already exists doesn't recreate it — it just re-wires the bootstrap's loadout to match whatever `StarterBuildingNames` currently says, so it's safe to re-run any time the list is tuned.
 
 ## Code Architecture
 
@@ -107,7 +104,7 @@ On death, `Unit.Explode()` deals flat splash damage (no counter multiplier, like
 
 ### Key singletons
 
-`GameManager`, `ResourceManager`, `MapGrid`, `HUD` — all follow the standard Unity singleton pattern (destroy duplicate on `Awake`). `GameManager.RestartGame()` reloads the active scene, which resets every MonoBehaviour singleton for free (none are `DontDestroyOnLoad`); it also explicitly clears `BuildingRegistry`/`UnitRegistry`, since those are plain static lists that a scene reload alone wouldn't touch.
+`GameManager`, `ResourceManager`, `MapGrid`, `HUD` — all follow the standard Unity singleton pattern (destroy duplicate on `Awake`). `GameManager.ReturnToMainMenu()` loads the `MainMenu` scene, which resets every MonoBehaviour singleton in `PlayScene` for free (none are `DontDestroyOnLoad`); it also explicitly clears `BuildingRegistry`/`UnitRegistry`, since those are plain static lists that a scene load alone wouldn't touch — otherwise a later match would start with stale entries from this one.
 
 ### Main menu (`Scripts/UI/MainMenuController.cs`, `Scripts/Core/GameSetup.cs`)
 

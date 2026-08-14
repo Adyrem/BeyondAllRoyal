@@ -49,4 +49,21 @@ public class BuildingShopPanel : MonoBehaviour
             });
         }
     }
+
+    // Only runs while the panel is active (i.e. the shop is open), so this
+    // doesn't cost anything the rest of the time. Unity's Button already
+    // renders non-interactable buttons with a dimmed/disabled tint and blocks
+    // their onClick, so this alone both greys out and disables selection for
+    // anything the player can't currently afford.
+    private void Update()
+    {
+        if (ResourceManager.Instance == null) return;
+        float metal = ResourceManager.Instance.PlayerMetal;
+
+        foreach (var entry in shopEntries)
+        {
+            if (entry.button == null || entry.data == null) continue;
+            entry.button.interactable = metal >= entry.data.metalCostToBuild;
+        }
+    }
 }

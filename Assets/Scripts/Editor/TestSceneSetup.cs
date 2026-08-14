@@ -5,7 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Run from the Unity menu: BeyondAllRoyal → 5 - Create Test Scene
+// Called by ProjectSetup.SetupScenes() (BeyondAllRoyal → 2 - Setup Scenes).
 // Duplicates PlayScene into a new TestScene (so it inherits all of PlayScene's
 // manually-wired GameObjects/HUD/MapGrid references for free instead of
 // rebuilding them from scratch) and adds a TestSceneBootstrap that pre-places
@@ -29,7 +29,6 @@ public static class TestSceneSetup
         "Barracks", "GunRange"
     };
 
-    [MenuItem("BeyondAllRoyal/5 - Create Test Scene")]
     public static void CreateTestScene()
     {
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())

@@ -9,22 +9,22 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 // Run from the Unity menu, in order:
-//   BeyondAllRoyal → 1 - Setup Project Assets   (no scene needed)
-//   BeyondAllRoyal → 2 - Wire Scene             (run once GameManager/HUD/MapGrid/BuildingShopPanel/NPCController exist in-scene)
-//   BeyondAllRoyal → 3 - Create Main Menu Scene (see MainMenuSetup.cs; standalone, can run any time after Step 1)
-//   BeyondAllRoyal → 4 - Apply Dark Purple Theme to Play Scene (see ThemeSetup.cs; re-runnable any time, unlike Step 2)
-//   BeyondAllRoyal → 5 - Create Test Scene (see TestSceneSetup.cs; duplicates PlayScene, run any time after it exists)
+//   BeyondAllRoyal → 1 - Setup Project Assets (no scene needed)
+//   BeyondAllRoyal → 2 - Setup Scenes         (run once GameManager/HUD/MapGrid/BuildingShopPanel/NPCController
+//                                               exist in PlayScene and it's the open scene; re-runnable any time)
+// Everything scene-related — wiring PlayScene, theming it (UITheme.cs),
+// creating MainMenu (MainMenuSetup.cs), and creating/refreshing TestScene
+// (TestSceneSetup.cs) — lives behind that one second step instead of each
+// having its own menu item, so there's just the one asset step and one scene
+// step to run/re-run. Those other files keep their own logic for readability,
+// they just aren't independently runnable from the menu anymore.
 public static class ProjectSetup
 {
-    // -------------------------------------------------------------------------
-    // Consolidated entry points — everything below is grouped into these two
-    // menu items so there's only one asset step and one scene step to run.
-    // Keep these MenuItem strings short and slash-free: Unity treats every "/"
-    // in the path as a submenu separator, so a descriptive suffix like
+    // Keep MenuItem strings short and slash-free: Unity treats every "/" in
+    // the path as a submenu separator, so a descriptive suffix like
     // "(... Cancel/Demolish/Restart ...)" silently explodes into a chain of
     // nested submenus instead of one clickable item. Put details in comments
-    // (here and in WireScene's own Debug.Log) instead of the menu string.
-    // -------------------------------------------------------------------------
+    // (here and in each step's own Debug.Log) instead of the menu string.
 
     [MenuItem("BeyondAllRoyal/1 - Setup Project Assets")]
     public static void SetupProjectAssets()
@@ -32,23 +32,46 @@ public static class ProjectSetup
         CreateScriptableObjects();
         CreatePrefabs();
         ImportAndAssignSprites();
-        Debug.Log("[BeyondAllRoyal] Project assets set up. Run 2 - Wire Scene once the scene's GameObjects exist.");
+        Debug.Log("[BeyondAllRoyal] Project assets set up. Run 2 - Setup Scenes once PlayScene's GameObjects exist.");
+    }
+
+    [MenuItem("BeyondAllRoyal/2 - Setup Scenes")]
+    public static void SetupScenes()
+    {
+        string originalScenePath = SceneManager.GetActiveScene().path;
+
+        WireScene();
+        ThemeSetup.ApplyPlaySceneTheme();
+
+        var activeScene = SceneManager.GetActiveScene();
+        if (!string.IsNullOrEmpty(activeScene.path))
+            EditorSceneManager.SaveScene(activeScene);
+
+        MainMenuSetup.CreateMainMenuScene();
+        TestSceneSetup.CreateTestScene();
+
+        // Land back on whatever was open when this started (PlayScene, per
+        // the documented workflow) instead of leaving TestScene open, since
+        // that's just an implementation detail of this step, not the point of it.
+        if (!string.IsNullOrEmpty(originalScenePath) && File.Exists(originalScenePath))
+            EditorSceneManager.OpenScene(originalScenePath);
+
+        Debug.Log("[BeyondAllRoyal] Scene setup complete: wired + themed PlayScene, created/refreshed MainMenu and TestScene.");
     }
 
     // Populates the shop panel, backfills shop icons, creates the minimum-reserve
-    // slider, adds Cancel/Demolish/Restart buttons, and populates the NPC's
-    // production building pool.
-    [MenuItem("BeyondAllRoyal/2 - Wire Scene")]
-    public static void WireScene()
+    // slider, adds Cancel/Demolish/Main Menu buttons, and populates the NPC's
+    // production building pool. Requires PlayScene's GameManager/HUD/MapGrid/
+    // BuildingShopPanel/NPCController to already exist in the open scene.
+    private static void WireScene()
     {
         PopulateShopPanel();
         AutoWireShopIcons();
         CreateMinimumReserveSlider();
         CreateCancelPlacementButton();
         CreateDemolishButton();
-        CreateRestartButton();
+        CreateMainMenuButton();
         AutoWireNPCBuildingTypes();
-        Debug.Log("[BeyondAllRoyal] Scene wiring done. Reposition/style the new UI as needed, then save the scene.");
     }
 
     const string AudioPath   = "Assets/Resources";
@@ -543,17 +566,18 @@ public static class ProjectSetup
     }
 
     // -------------------------------------------------------------------------
-    // Step 2f — adds a Restart button as a child of HUD.endScreen, wired to
-    // HUD.restartButton, which calls GameManager.RestartGame(). Also registers
-    // the current scene in Build Settings, since SceneManager.LoadScene (used
-    // by RestartGame) silently fails on a scene that isn't listed there.
+    // Step 2f — adds a Main Menu button as a child of HUD.endScreen, wired to
+    // HUD.mainMenuButton, which calls GameManager.ReturnToMainMenu(). Also
+    // registers the current scene in Build Settings, since SceneManager.LoadScene
+    // silently fails on a scene that isn't listed there — needed both for this
+    // scene to be reachable from MainMenu and for ReturnToMainMenu's own load.
     // Requires HUD (with endScreen assigned) in the open scene.
     // -------------------------------------------------------------------------
 
-    static void CreateRestartButton()
+    static void CreateMainMenuButton()
     {
         EnsureSceneInBuildSettings();
-        CreateHudChildButton("restartButton", "endScreen", "RestartButton", "Restart",
+        CreateHudChildButton("mainMenuButton", "endScreen", "MainMenuButton", "Main Menu",
             new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -90f), new Vector2(220f, 64f));
     }
 
@@ -568,7 +592,7 @@ public static class ProjectSetup
         scenes.Add(new EditorBuildSettingsScene(scene.path, true));
         EditorBuildSettings.scenes = scenes.ToArray();
 
-        Debug.Log($"[BeyondAllRoyal] Added '{scene.path}' to Build Settings (required for GameManager.RestartGame()'s scene reload).");
+        Debug.Log($"[BeyondAllRoyal] Added '{scene.path}' to Build Settings (required for MainMenu/GameManager.ReturnToMainMenu() scene loads).");
     }
 
     // -------------------------------------------------------------------------
@@ -616,7 +640,7 @@ public static class ProjectSetup
                   "NPCController.allProductionBuildingTypes. Save the scene.");
     }
 
-    // Shared by CreateCancelPlacementButton/CreateDemolishButton/CreateRestartButton:
+    // Shared by CreateCancelPlacementButton/CreateDemolishButton/CreateMainMenuButton:
     // creates a button as a child of the GameObject referenced by HUD's
     // parentFieldName, wires it into HUD's buttonFieldName, and skips if already assigned.
     static void CreateHudChildButton(string buttonFieldName, string parentFieldName, string goName, string label,

@@ -11,8 +11,8 @@ public static class UnitRegistry
     public static void Unregister(Unit unit) => units.Remove(unit);
 
     // Clear the list when exiting play mode so stale references don't carry over.
-    // Also called explicitly by GameManager.RestartGame() — a scene reload alone
-    // doesn't clear this, since it's a plain static list, not a scene object.
+    // Also called explicitly by GameManager.ReturnToMainMenu() — a scene load
+    // alone doesn't clear this, since it's a plain static list, not a scene object.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     public static void Reset() => units.Clear();
 }

@@ -12,7 +12,7 @@ public class HUD : MonoBehaviour
     [Header("End screen")]
     [SerializeField] private GameObject      endScreen;
     [SerializeField] private TextMeshProUGUI endScreenText;
-    [SerializeField] private Button          restartButton;
+    [SerializeField] private Button          mainMenuButton;
 
     [Header("Building shop")]
     [SerializeField] private BuildingShopPanel shopPanel;
@@ -63,7 +63,7 @@ public class HUD : MonoBehaviour
         // accepts Escape/right-click for desktop testing.
         cancelPlacementButton?.onClick.AddListener(() => BuildingPlacer.Instance?.CancelPlacement());
         demolishButton?.onClick.AddListener(OnDemolishClicked);
-        restartButton?.onClick.AddListener(() => GameManager.Instance.RestartGame());
+        mainMenuButton?.onClick.AddListener(() => GameManager.Instance.ReturnToMainMenu());
     }
 
     private void Start()
@@ -147,6 +147,13 @@ public class HUD : MonoBehaviour
         toggleProductionButton?.gameObject.SetActive(hasProd);
         if (hasProd && productionBuildingName != null)
             productionBuildingName.text = building.Data.buildingName;
+
+        // Selecting an existing building while the shop is open would otherwise
+        // leave both panels competing for the same screen space. (BuildingSelector
+        // never selects a building while BuildingPlacer.IsPlacing is true, so
+        // there's no in-progress placement to also cancel here.)
+        if (hasBuilding && shopPanel != null && shopPanel.gameObject.activeSelf)
+            shopPanel.gameObject.SetActive(false);
     }
 
     private void OnToggleProduction()
@@ -170,6 +177,11 @@ public class HUD : MonoBehaviour
         // Opening the shop with a building already selected for placement would
         // otherwise leave that ghost active underneath the menu; always clear it.
         BuildingPlacer.Instance?.CancelPlacement();
+
+        // Opening the shop with an existing building's info panel open would
+        // otherwise leave both panels competing for the same screen space.
+        if (show)
+            BuildingSelector.Instance?.Deselect();
     }
 
     // -------------------------------------------------------------------------

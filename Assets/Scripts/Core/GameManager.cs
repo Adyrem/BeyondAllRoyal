@@ -7,6 +7,7 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
 
     [SerializeField] private GameSettings settings;
+    [SerializeField] private string mainMenuSceneName = "MainMenu";
 
     public GameSettings Settings => settings;
     public GameState CurrentState { get; private set; } = GameState.Pregame;
@@ -37,14 +38,15 @@ public class GameManager : MonoBehaviour
         HUD.Instance?.ShowEndScreen(CurrentState);
     }
 
-    // Reloading the scene resets every MonoBehaviour singleton (GameManager,
-    // ResourceManager, MapGrid, HUD, ...) for free since none are marked
-    // DontDestroyOnLoad. The two plain-static registries aren't scene objects
-    // though, so they need clearing explicitly or stale entries would linger.
-    public void RestartGame()
+    // Loading MainMenu resets every MonoBehaviour singleton in this scene
+    // (GameManager, ResourceManager, MapGrid, HUD, ...) for free since none are
+    // marked DontDestroyOnLoad. The two plain-static registries aren't scene
+    // objects though, so they need clearing explicitly or stale entries from
+    // this match would linger into the next one.
+    public void ReturnToMainMenu()
     {
         BuildingRegistry.Reset();
         UnitRegistry.Reset();
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneManager.LoadScene(mainMenuSceneName);
     }
 }

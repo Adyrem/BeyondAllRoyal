@@ -9,7 +9,7 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// Run from the Unity menu: BeyondAllRoyal → 3 - Create Main Menu Scene
+// Called by ProjectSetup.SetupScenes() (BeyondAllRoyal → 2 - Setup Scenes).
 // Builds a new MainMenu scene from scratch (Camera, EventSystem, Canvas, title,
 // AI difficulty dropdown, Singleplayer/Multiplayer buttons) wired to a
 // MainMenuController, saves it to Assets/Scenes/MainMenu.unity, and registers
@@ -19,7 +19,6 @@ public static class MainMenuSetup
     private const string ScenePath     = "Assets/Scenes/MainMenu.unity";
     private const string PlayScenePath = "Assets/Scenes/PlayScene.unity";
 
-    [MenuItem("BeyondAllRoyal/3 - Create Main Menu Scene")]
     public static void CreateMainMenuScene()
     {
         if (File.Exists(ScenePath))
