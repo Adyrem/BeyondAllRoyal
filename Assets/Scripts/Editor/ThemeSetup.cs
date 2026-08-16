@@ -57,7 +57,18 @@ public static class ThemeSetup
     private static void StyleText(SerializedObject hudSo, string fieldName)
     {
         var text = hudSo.FindProperty(fieldName)?.objectReferenceValue as TextMeshProUGUI;
-        if (text != null) text.color = UITheme.Text;
+        if (text == null) return;
+
+        text.color = UITheme.Text;
+
+        // These were all hand-created at whatever default size the Inspector
+        // starts new Text objects at (~14-18pt), which reads as tiny on a
+        // phone screen. Auto-sizing (rather than a fixed size) so a label
+        // stuck in a small manually-sized panel shrinks to fit instead of
+        // overflowing it.
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 24f;
+        text.fontSizeMax = 44f;
     }
 
     private static void StyleButton(SerializedObject hudSo, string fieldName)
@@ -66,16 +77,48 @@ public static class ThemeSetup
         if (button != null) UITheme.ApplyButtonColors(button, UITheme.Accent);
     }
 
-    // Recolors the panel's own background Image, if it has one, preserving its
-    // existing alpha rather than assuming it should become fully opaque.
+    // A panel sized to just barely fit one small text label reads as "no
+    // panel at all" against the busy game-world background behind it.
+    private const float MinPanelWidth  = 480f;
+    private const float MinPanelHeight = 200f;
+
+    // Recolors the panel's own background Image (bumping its alpha to at
+    // least NearOpaqueAlpha, since a near-transparent panel is exactly the
+    // "poor visibility" this exists to fix) and enforces a minimum size on
+    // the panel itself. Adds a background Image first if the panel doesn't
+    // have one yet — a panel with only text/buttons and no backing Image
+    // renders as text floating directly over the game world.
+    private const float NearOpaqueAlpha = 0.95f;
+
     private static void StylePanelBackground(SerializedObject hudSo, string fieldName)
     {
         var panelGO = hudSo.FindProperty(fieldName)?.objectReferenceValue as GameObject;
-        var image = panelGO != null ? panelGO.GetComponent<Image>() : null;
-        if (image == null) return;
+        if (panelGO == null) return;
+
+        // Only safe to force a minimum size when the panel is point-anchored
+        // (a fixed size) — a stretch-anchored panel's sizeDelta means
+        // something else entirely (an offset from the stretched size), so
+        // forcing it here could distort a deliberately full-width/height panel.
+        var rect = panelGO.GetComponent<RectTransform>();
+        if (rect != null && Vector2.Distance(rect.anchorMin, rect.anchorMax) < 0.01f)
+        {
+            var size = rect.sizeDelta;
+            rect.sizeDelta = new Vector2(Mathf.Max(size.x, MinPanelWidth), Mathf.Max(size.y, MinPanelHeight));
+        }
+
+        var image = panelGO.GetComponent<Image>();
+        if (image == null)
+        {
+            // Added directly on the panel itself (not a new child), so it
+            // naturally renders behind the panel's existing child text/buttons
+            // without needing any sibling-order changes.
+            image = panelGO.AddComponent<Image>();
+            image.color = new Color(UITheme.Panel.r, UITheme.Panel.g, UITheme.Panel.b, NearOpaqueAlpha);
+            return;
+        }
 
         var color = UITheme.Panel;
-        color.a = image.color.a;
+        color.a = Mathf.Max(image.color.a, NearOpaqueAlpha);
         image.color = color;
     }
 
@@ -94,10 +137,10 @@ public static class ThemeSetup
         if (handle != null) handle.color = UITheme.Accent;
     }
 
-    // Recolors the panel's own background (if any) and each entry's cost
-    // label. Deliberately leaves each entry's icon/button Image alone — that
-    // Image displays the building's own sprite (see BuildingShopPanel.Start),
-    // so tinting it would recolor the building icons themselves.
+    // Recolors the panel's own background (if any) and each entry's name/cost
+    // labels. Deliberately leaves each entry's icon Image alone — that Image
+    // displays the building's own sprite (see BuildingShopPanel.Start), so
+    // tinting it would recolor the building icons themselves.
     private static void StyleShopPanel()
     {
         var panel = Object.FindAnyObjectByType<BuildingShopPanel>(FindObjectsInactive.Include);
@@ -108,10 +151,15 @@ public static class ThemeSetup
         }
 
         var panelImage = panel.GetComponent<Image>();
-        if (panelImage != null)
+        if (panelImage == null)
+        {
+            panelImage = panel.gameObject.AddComponent<Image>();
+            panelImage.color = new Color(UITheme.Panel.r, UITheme.Panel.g, UITheme.Panel.b, NearOpaqueAlpha);
+        }
+        else
         {
             var color = UITheme.Panel;
-            color.a = panelImage.color.a;
+            color.a = Mathf.Max(panelImage.color.a, NearOpaqueAlpha);
             panelImage.color = color;
         }
 
@@ -119,9 +167,13 @@ public static class ThemeSetup
         var entries = so.FindProperty("shopEntries");
         for (int i = 0; i < entries.arraySize; i++)
         {
-            var costLabel = entries.GetArrayElementAtIndex(i)
-                .FindPropertyRelative("costLabel").objectReferenceValue as TextMeshProUGUI;
-            if (costLabel != null) costLabel.color = UITheme.Text;
+            var entry = entries.GetArrayElementAtIndex(i);
+
+            var nameLabel = entry.FindPropertyRelative("nameLabel").objectReferenceValue as TextMeshProUGUI;
+            if (nameLabel != null) nameLabel.color = UITheme.Text;
+
+            var costLabel = entry.FindPropertyRelative("costLabel").objectReferenceValue as TextMeshProUGUI;
+            if (costLabel != null) costLabel.color = UITheme.MutedText;
         }
 
         EditorSceneManager.MarkSceneDirty(panel.gameObject.scene);

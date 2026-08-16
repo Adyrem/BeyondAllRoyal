@@ -14,6 +14,9 @@ using UnityEngine.UI;
 // AI difficulty dropdown, Singleplayer/Multiplayer buttons) wired to a
 // MainMenuController, saves it to Assets/Scenes/MainMenu.unity, and registers
 // it as build index 0 — PlayScene is loaded from it once Singleplayer is picked.
+// Re-running this once MainMenu.unity already exists rebuilds its contents
+// fresh from the code below instead of skipping, so a re-run always reflects
+// the current sizes/positions/colors without deleting the file by hand first.
 public static class MainMenuSetup
 {
     private const string ScenePath     = "Assets/Scenes/MainMenu.unity";
@@ -21,19 +24,24 @@ public static class MainMenuSetup
 
     public static void CreateMainMenuScene()
     {
-        if (File.Exists(ScenePath))
-        {
-            Debug.LogWarning($"[BeyondAllRoyal] '{ScenePath}' already exists — delete it first if you want " +
-                              "to regenerate it, so this doesn't clobber any scene edits made in the Editor.");
-            return;
-        }
-
         // Prompts to save the currently open scene if it has unsaved changes,
-        // rather than silently discarding them when we open a new empty scene.
+        // rather than silently discarding them when we switch scenes below.
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
-        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        bool alreadyExisted = File.Exists(ScenePath);
+        Scene scene;
+
+        if (alreadyExisted)
+        {
+            scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            foreach (var root in scene.GetRootGameObjects())
+                Object.DestroyImmediate(root);
+        }
+        else
+        {
+            scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        }
 
         BuildCameraAndEventSystem();
         var canvas       = BuildCanvas();
@@ -42,10 +50,13 @@ public static class MainMenuSetup
 
         BuildTitle(canvas.transform);
         var dropdown            = BuildDifficultyDropdown(canvas.transform);
+        // Left enough headroom below the dropdown for its opened option list
+        // (3 rows below the box itself, see BuildDifficultyDropdown) to not
+        // overlap the Singleplayer button.
         var singleplayerButton  = BuildButton(canvas.transform, "SingleplayerButton", "Singleplayer",
-            new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(420f, 100f), UITheme.Accent, Color.white);
+            new Vector2(0.5f, 0.5f), new Vector2(0f, -160f), new Vector2(460f, 110f), UITheme.Accent, Color.white);
         var multiplayerButton   = BuildButton(canvas.transform, "MultiplayerButton", "Multiplayer (Coming Soon)",
-            new Vector2(0.5f, 0.5f), new Vector2(0f, -180f), new Vector2(420f, 100f), UITheme.Disabled, UITheme.DisabledText);
+            new Vector2(0.5f, 0.5f), new Vector2(0f, -300f), new Vector2(460f, 110f), UITheme.Disabled, UITheme.DisabledText);
 
         var so = new SerializedObject(controller);
         so.FindProperty("difficultyDropdown").objectReferenceValue = dropdown;
@@ -59,7 +70,8 @@ public static class MainMenuSetup
 
         RegisterScenesInBuildSettings();
 
-        Debug.Log($"[BeyondAllRoyal] Created MainMenu scene at '{ScenePath}' and registered it as build index 0. " +
+        string verb = alreadyExisted ? "Refreshed" : "Created";
+        Debug.Log($"[BeyondAllRoyal] {verb} MainMenu scene at '{ScenePath}' (build index 0). " +
                   "Reposition/style the UI as needed, then save the scene.");
     }
 
@@ -118,11 +130,11 @@ public static class MainMenuSetup
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot     = new Vector2(0.5f, 0f);
-        labelRect.anchoredPosition = new Vector2(0f, 220f);
-        labelRect.sizeDelta = new Vector2(400f, 46f);
+        labelRect.anchoredPosition = new Vector2(0f, 330f);
+        labelRect.sizeDelta = new Vector2(460f, 60f);
         var labelText = label.AddComponent<TextMeshProUGUI>();
         labelText.text      = "AI Difficulty";
-        labelText.fontSize  = 36f;
+        labelText.fontSize  = 46f;
         labelText.alignment = TextAlignmentOptions.Center;
         labelText.color     = UITheme.MutedText;
 
@@ -133,16 +145,44 @@ public static class MainMenuSetup
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot     = new Vector2(0.5f, 1f);
-        rect.anchoredPosition = new Vector2(0f, 160f);
-        rect.sizeDelta = new Vector2(400f, 80f);
+        rect.anchoredPosition = new Vector2(0f, 260f);
+        rect.sizeDelta = new Vector2(460f, 110f);
 
         // TMP_DefaultControls sizes its caption/item text for the small default
-        // rect — bump both so they don't look tiny inside the enlarged dropdown.
+        // rect and enables auto-sizing on both — which silently overrides a
+        // plain .fontSize assignment, so the bump below wouldn't actually take
+        // effect without also turning auto-sizing off first.
         var captionText = dropdownGO.transform.Find("Label")?.GetComponent<TextMeshProUGUI>();
-        if (captionText != null) { captionText.fontSize = 30f; captionText.color = Color.white; }
+        if (captionText != null)
+        {
+            captionText.enableAutoSizing = false;
+            captionText.fontSize = 44f;
+            captionText.color    = Color.white;
+        }
 
-        var itemText = dropdownGO.transform.Find("Template/Viewport/Content/Item/Item Label")?.GetComponent<TextMeshProUGUI>();
-        if (itemText != null) { itemText.fontSize = 28f; itemText.color = Color.white; }
+        var itemTransform = dropdownGO.transform.Find("Template/Viewport/Content/Item");
+        var itemText = itemTransform?.Find("Item Label")?.GetComponent<TextMeshProUGUI>();
+        if (itemText != null)
+        {
+            itemText.enableAutoSizing = false;
+            itemText.fontSize = 40f;
+            itemText.color    = Color.white;
+        }
+
+        // The option rows default to a height sized for TMP_DefaultControls' own
+        // small caption font (~14pt) — at the 40pt used here that's way too
+        // short, so the three options render squished/overlapping each other
+        // instead of as separate rows. Resize the row (and the template that
+        // contains all of them) to fit.
+        const float itemHeight = 70f;
+        var itemRect = itemTransform?.GetComponent<RectTransform>();
+        if (itemRect != null) itemRect.sizeDelta = new Vector2(itemRect.sizeDelta.x, itemHeight);
+        var itemLayout = itemTransform?.GetComponent<LayoutElement>();
+        if (itemLayout != null) itemLayout.preferredHeight = itemHeight;
+
+        var templateRect = dropdownGO.transform.Find("Template")?.GetComponent<RectTransform>();
+        if (templateRect != null)
+            templateRect.sizeDelta = new Vector2(templateRect.sizeDelta.x, itemHeight * 3f + 10f); // Easy/Medium/Hard
 
         // The dropdown box itself, and the opened list's viewport background —
         // both default to a plain white Image, tinted here to match the theme.
@@ -202,9 +242,11 @@ public static class MainMenuSetup
         labelRect.offsetMax = Vector2.zero;
         var labelText = labelGO.AddComponent<TextMeshProUGUI>();
         labelText.alignment = TextAlignmentOptions.Center;
-        labelText.fontSize  = 34f;
-        labelText.text      = label;
-        labelText.color     = textColor;
+        labelText.enableAutoSizing = true;
+        labelText.fontSizeMin = 18f;
+        labelText.fontSizeMax = 34f;
+        labelText.text        = label;
+        labelText.color       = textColor;
 
         return button;
     }

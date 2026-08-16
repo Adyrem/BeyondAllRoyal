@@ -138,6 +138,13 @@ public class HUD : MonoBehaviour
                 buildingInfoName.text = building.Data.buildingName;
         }
 
+        // The min-reserve slider sits behind buildingInfoPanel (z-order fixed
+        // in ProjectSetup.CreateMinimumReserveSlider) in the same top-left
+        // corner, so it shouldn't still be draggable through the panel now
+        // covering it.
+        if (minimumReserveSlider != null)
+            minimumReserveSlider.interactable = !hasBuilding;
+
         demolishButton?.gameObject.SetActive(hasBuilding && building is not HQ);
 
         // Pausing production only makes sense for buildings that produce units —

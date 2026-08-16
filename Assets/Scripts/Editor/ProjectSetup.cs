@@ -59,14 +59,13 @@ public static class ProjectSetup
         Debug.Log("[BeyondAllRoyal] Scene setup complete: wired + themed PlayScene, created/refreshed MainMenu and TestScene.");
     }
 
-    // Populates the shop panel, backfills shop icons, creates the minimum-reserve
+    // Populates the categorized shop panel, creates the minimum-reserve
     // slider, adds Cancel/Demolish/Main Menu buttons, and populates the NPC's
     // production building pool. Requires PlayScene's GameManager/HUD/MapGrid/
     // BuildingShopPanel/NPCController to already exist in the open scene.
     private static void WireScene()
     {
         PopulateShopPanel();
-        AutoWireShopIcons();
         CreateMinimumReserveSlider();
         CreateCancelPlacementButton();
         CreateDemolishButton();
@@ -330,14 +329,23 @@ public static class ProjectSetup
     }
 
     // -------------------------------------------------------------------------
-    // Step 2a — creates one button per player-placeable building type (skips any
-    // BuildingData already present in shopEntries) and appends a wired ShopEntry
-    // for each. Adds a GridLayoutGroup to the panel so buttons don't overlap.
-    // Requires BuildingShopPanel in the open scene.
+    // Step 2a — rebuilds the shop panel as a categorized vertical list (Economy /
+    // Units / Defense, per ShopCategories below), each building shown as a row
+    // with its icon, name, and cost. Always fully rebuilds from ShopCategories
+    // rather than incrementally adding, since the panel's whole layout can
+    // change (e.g. grid -> categorized list) — unlike a simple add-if-missing
+    // list, there's no sensible way to patch that in place. Sprite/cost/name
+    // values are set at runtime by BuildingShopPanel.Start(), not baked in here,
+    // so they stay in sync with the underlying BuildingData without re-running
+    // this step. Requires BuildingShopPanel in the open scene.
     // -------------------------------------------------------------------------
 
-    // Every BuildingNames entry except HQ — it's pre-placed by MapGrid, never player-built.
-    static string[] PlaceableBuildingNames => BuildingNames.Where(n => n != "HQ").ToArray();
+    static readonly (string Header, string[] Names)[] ShopCategories =
+    {
+        ("Economy", new[] { "MetalFactory", "TeslaTower" }),
+        ("Units",   new[] { "Barracks", "GunRange", "Laboratory", "SkimmerPad", "IronWorks" }),
+        ("Defense", new[] { "MachinegunTurret", "RailgunTurret" }),
+    };
 
     static void PopulateShopPanel()
     {
@@ -348,130 +356,181 @@ public static class ProjectSetup
             return;
         }
 
-        if (panel.GetComponent<GridLayoutGroup>() == null)
+        for (int i = panel.transform.childCount - 1; i >= 0; i--)
+            Object.DestroyImmediate(panel.transform.GetChild(i).gameObject);
+
+        var oldGrid = panel.GetComponent<GridLayoutGroup>();
+        if (oldGrid != null) Object.DestroyImmediate(oldGrid);
+
+        // Stretch to the full canvas width (minus a small margin) instead of
+        // whatever fixed width the panel happened to be given manually —
+        // there's plenty of horizontal room on a phone screen and a
+        // categorized list with names reads much better wide than narrow.
+        // Left as-is vertically: wherever it's anchored/positioned top-to-
+        // bottom is left alone, since ContentSizeFitter already grows its
+        // height to fit content.
+        var panelRect = panel.GetComponent<RectTransform>();
+        if (panelRect != null)
         {
-            var grid = panel.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(160f, 160f);
-            grid.spacing  = new Vector2(12f, 12f);
+            panelRect.anchorMin = new Vector2(0f, panelRect.anchorMin.y);
+            panelRect.anchorMax = new Vector2(1f, panelRect.anchorMax.y);
+            panelRect.offsetMin = new Vector2(16f, panelRect.offsetMin.y);
+            panelRect.offsetMax = new Vector2(-16f, panelRect.offsetMax.y);
         }
+
+        var vlg = panel.GetComponent<VerticalLayoutGroup>();
+        if (vlg == null) vlg = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+        vlg.padding               = new RectOffset(14, 14, 14, 14);
+        vlg.spacing                = 10f;
+        vlg.childAlignment         = TextAnchor.UpperLeft;
+        vlg.childControlWidth      = true;
+        vlg.childForceExpandWidth  = true;
+        vlg.childControlHeight     = true;
+        vlg.childForceExpandHeight = false;
+
+        var fitter = panel.GetComponent<ContentSizeFitter>();
+        if (fitter == null) fitter = panel.gameObject.AddComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         var so = new SerializedObject(panel);
         var entries = so.FindProperty("shopEntries");
-
-        var existingData = new HashSet<Object>();
-        for (int i = 0; i < entries.arraySize; i++)
-        {
-            var d = entries.GetArrayElementAtIndex(i).FindPropertyRelative("data").objectReferenceValue;
-            if (d != null) existingData.Add(d);
-        }
+        entries.arraySize = 0;
 
         int added = 0;
-        foreach (var name in PlaceableBuildingNames)
+        foreach (var (header, names) in ShopCategories)
         {
-            var data   = AssetDatabase.LoadAssetAtPath<BuildingData>($"{SOBuildings}/{name}.asset");
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabBuildings}/{name}.prefab");
-            if (data == null || prefab == null || existingData.Contains(data)) continue;
+            CreateCategoryHeader(panel.transform, header);
 
-            var buttonGO = DefaultControls.CreateButton(new DefaultControls.Resources());
-            buttonGO.name = $"{name}Button";
-            buttonGO.transform.SetParent(panel.transform, false);
+            foreach (var name in names)
+            {
+                var data   = AssetDatabase.LoadAssetAtPath<BuildingData>($"{SOBuildings}/{name}.asset");
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabBuildings}/{name}.prefab");
+                if (data == null || prefab == null) continue;
 
-            // The default label child just says "Button" and would sit on top of
-            // the building icon (the button's own Image, set by BuildingShopPanel
-            // at runtime) — replace it with a small cost label instead.
-            var defaultLabel = buttonGO.transform.Find("Text (Legacy)");
-            if (defaultLabel != null) Object.DestroyImmediate(defaultLabel.gameObject);
+                var row = CreateShopRow(panel.transform, name);
 
-            var labelGO = new GameObject("CostLabel", typeof(RectTransform));
-            labelGO.transform.SetParent(buttonGO.transform, false);
-            var labelRect = labelGO.GetComponent<RectTransform>();
-            labelRect.anchorMin = new Vector2(0f, 0f);
-            labelRect.anchorMax = new Vector2(1f, 0.3f);
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-            var label = labelGO.AddComponent<TextMeshProUGUI>();
-            label.alignment = TextAlignmentOptions.Center;
-            label.fontSize  = 20f;
-            label.text      = $"{data.metalCostToBuild:F0}";
+                int idx = entries.arraySize;
+                entries.arraySize++;
+                var entry = entries.GetArrayElementAtIndex(idx);
+                entry.FindPropertyRelative("data").objectReferenceValue      = data;
+                entry.FindPropertyRelative("prefab").objectReferenceValue    = prefab;
+                entry.FindPropertyRelative("button").objectReferenceValue    = row.Button;
+                entry.FindPropertyRelative("icon").objectReferenceValue      = row.Icon;
+                entry.FindPropertyRelative("nameLabel").objectReferenceValue = row.NameLabel;
+                entry.FindPropertyRelative("costLabel").objectReferenceValue = row.CostLabel;
 
-            int idx = entries.arraySize;
-            entries.arraySize++;
-            var entry = entries.GetArrayElementAtIndex(idx);
-            entry.FindPropertyRelative("data").objectReferenceValue      = data;
-            entry.FindPropertyRelative("prefab").objectReferenceValue    = prefab;
-            entry.FindPropertyRelative("button").objectReferenceValue    = buttonGO.GetComponent<Button>();
-            entry.FindPropertyRelative("icon").objectReferenceValue      = buttonGO.GetComponent<Image>();
-            entry.FindPropertyRelative("costLabel").objectReferenceValue = label;
-
-            added++;
+                added++;
+            }
         }
 
         so.ApplyModifiedProperties();
-
-        if (added > 0)
-        {
-            EditorSceneManager.MarkSceneDirty(panel.gameObject.scene);
-            Debug.Log($"[BeyondAllRoyal] Added {added} shop button(s). Icons populate from spriteFrameA at runtime. " +
-                      "Resize the panel/grid cells as needed, then save the scene.");
-        }
-        else
-        {
-            Debug.Log("[BeyondAllRoyal] Nothing to add — every placeable building already has a shop entry.");
-        }
+        EditorSceneManager.MarkSceneDirty(panel.gameObject.scene);
+        Debug.Log($"[BeyondAllRoyal] Rebuilt the shop panel: {added} building(s) across {ShopCategories.Length} " +
+                  "categories (Economy/Units/Defense). Reposition/resize the panel as needed, then save the scene.");
     }
 
-    // -------------------------------------------------------------------------
-    // Step 2b — backfills the icon on any ShopEntry that doesn't have one yet
-    // (PopulateShopPanel already sets it for entries it creates; this covers
-    // entries added by hand). Requires BuildingShopPanel in the open scene.
-    // -------------------------------------------------------------------------
-
-    static void AutoWireShopIcons()
+    static void CreateCategoryHeader(Transform parent, string title)
     {
-        var panel = Object.FindAnyObjectByType<BuildingShopPanel>(FindObjectsInactive.Include);
-        if (panel == null)
+        var go = new GameObject($"{title}Header", typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+
+        var layout = go.AddComponent<LayoutElement>();
+        layout.preferredHeight = 56f;
+        layout.minHeight       = 56f;
+
+        var text = go.AddComponent<TextMeshProUGUI>();
+        text.text      = title;
+        text.fontSize  = 32f;
+        text.fontStyle = FontStyles.Bold;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.color     = UITheme.MutedText;
+    }
+
+    readonly struct ShopRowRefs
+    {
+        public readonly Button Button;
+        public readonly Image Icon;
+        public readonly TextMeshProUGUI NameLabel;
+        public readonly TextMeshProUGUI CostLabel;
+
+        public ShopRowRefs(Button button, Image icon, TextMeshProUGUI nameLabel, TextMeshProUGUI costLabel)
         {
-            Debug.LogWarning("[BeyondAllRoyal] No BuildingShopPanel found in the open scene.");
-            return;
-        }
-
-        var so = new SerializedObject(panel);
-        var entries = so.FindProperty("shopEntries");
-        int wired = 0, skipped = 0;
-
-        for (int i = 0; i < entries.arraySize; i++)
-        {
-            var entry = entries.GetArrayElementAtIndex(i);
-            var iconProp = entry.FindPropertyRelative("icon");
-
-            if (iconProp.objectReferenceValue != null) continue; // don't clobber a manual choice
-
-            var button = entry.FindPropertyRelative("button").objectReferenceValue as Button;
-            var image  = button != null ? button.GetComponent<Image>() : null;
-            if (image == null) { skipped++; continue; }
-
-            iconProp.objectReferenceValue = image;
-            wired++;
-        }
-
-        so.ApplyModifiedProperties();
-
-        if (wired > 0)
-        {
-            EditorSceneManager.MarkSceneDirty(panel.gameObject.scene);
-            Debug.Log($"[BeyondAllRoyal] Wired {wired} shop icon(s) to their button's own Image component. " +
-                      $"Save the scene (Ctrl+S) to persist this.{(skipped > 0 ? $" ({skipped} entries had no button/Image and were skipped.)" : "")}");
-        }
-        else
-        {
-            Debug.Log("[BeyondAllRoyal] Nothing to wire — icons already assigned, or entries have no button with an Image component.");
+            Button = button;
+            Icon = icon;
+            NameLabel = nameLabel;
+            CostLabel = costLabel;
         }
     }
 
+    // One row per building: icon | name (flexible width) | cost, the whole row
+    // clickable as a single Button. Sprite/name/cost text is left for
+    // BuildingShopPanel.Start() to fill in from the BuildingData at runtime.
+    static ShopRowRefs CreateShopRow(Transform parent, string buildingName)
+    {
+        var rowGO = new GameObject($"{buildingName}Row", typeof(RectTransform));
+        rowGO.transform.SetParent(parent, false);
+
+        var rowLayout = rowGO.AddComponent<LayoutElement>();
+        rowLayout.preferredHeight = 104f;
+        rowLayout.minHeight       = 104f;
+
+        var rowImage = rowGO.AddComponent<Image>();
+        var button   = rowGO.AddComponent<Button>();
+        button.targetGraphic = rowImage;
+        UITheme.ApplyButtonColors(button, UITheme.Panel);
+
+        var hlg = rowGO.AddComponent<HorizontalLayoutGroup>();
+        hlg.padding               = new RectOffset(14, 14, 8, 8);
+        hlg.spacing                = 16f;
+        hlg.childAlignment         = TextAnchor.MiddleLeft;
+        hlg.childControlWidth      = true;
+        hlg.childForceExpandWidth  = false;
+        hlg.childControlHeight     = true;
+        hlg.childForceExpandHeight = true;
+
+        var iconGO = new GameObject("Icon", typeof(RectTransform));
+        iconGO.transform.SetParent(rowGO.transform, false);
+        var iconLayout = iconGO.AddComponent<LayoutElement>();
+        iconLayout.preferredWidth = 84f;
+        iconLayout.minWidth       = 84f;
+        var icon = iconGO.AddComponent<Image>();
+        icon.preserveAspect = true;
+
+        var nameGO = new GameObject("Name", typeof(RectTransform));
+        nameGO.transform.SetParent(rowGO.transform, false);
+        var nameLayout = nameGO.AddComponent<LayoutElement>();
+        nameLayout.flexibleWidth = 1f;
+        var nameLabel = nameGO.AddComponent<TextMeshProUGUI>();
+        nameLabel.fontSize          = 30f;
+        nameLabel.alignment         = TextAlignmentOptions.MidlineLeft;
+        nameLabel.color             = UITheme.Text;
+        nameLabel.enableAutoSizing  = true;
+        nameLabel.fontSizeMin       = 18f;
+        nameLabel.fontSizeMax       = 30f;
+
+        var costGO = new GameObject("Cost", typeof(RectTransform));
+        costGO.transform.SetParent(rowGO.transform, false);
+        var costLayout = costGO.AddComponent<LayoutElement>();
+        costLayout.preferredWidth = 90f;
+        costLayout.minWidth       = 90f;
+        var costLabel = costGO.AddComponent<TextMeshProUGUI>();
+        costLabel.fontSize          = 26f;
+        costLabel.alignment         = TextAlignmentOptions.MidlineRight;
+        costLabel.color             = UITheme.MutedText;
+        costLabel.enableAutoSizing  = true;
+        costLabel.fontSizeMin       = 16f;
+        costLabel.fontSizeMax       = 26f;
+
+        return new ShopRowRefs(button, icon, nameLabel, costLabel);
+    }
+
     // -------------------------------------------------------------------------
-    // Step 2c — builds a default (unstyled) Slider + label under the same Canvas
+    // Step 2b — builds a default (unstyled) Slider + label under the same Canvas
     // as HUD and wires them into HUD.minimumReserveSlider/minimumReserveLabel.
-    // Requires HUD in the open scene.
+    // Destroys and rebuilds them fresh each time (rather than skipping once
+    // created), so a re-run always reflects the current size/position instead
+    // of requiring the old ones to be deleted by hand first. Requires HUD in
+    // the open scene.
     // -------------------------------------------------------------------------
 
     static void CreateMinimumReserveSlider()
@@ -487,11 +546,10 @@ public static class ProjectSetup
         var sliderProp = so.FindProperty("minimumReserveSlider");
         var labelProp  = so.FindProperty("minimumReserveLabel");
 
-        if (sliderProp.objectReferenceValue != null)
-        {
-            Debug.Log("[BeyondAllRoyal] HUD already has a minimumReserveSlider assigned — skipping.");
-            return;
-        }
+        var existingSlider = sliderProp.objectReferenceValue as Slider;
+        if (existingSlider != null) Object.DestroyImmediate(existingSlider.gameObject);
+        var existingLabel = labelProp.objectReferenceValue as TextMeshProUGUI;
+        if (existingLabel != null) Object.DestroyImmediate(existingLabel.gameObject);
 
         var canvas = hud.GetComponentInParent<Canvas>();
         if (canvas == null) canvas = Object.FindAnyObjectByType<Canvas>();
@@ -504,13 +562,17 @@ public static class ProjectSetup
         var sliderGO = DefaultControls.CreateSlider(new DefaultControls.Resources());
         sliderGO.name = "MinimumReserveSlider";
         sliderGO.transform.SetParent(canvas.transform, false);
+        // Sits behind every other HUD panel (e.g. buildingInfoPanel, which can
+        // otherwise end up overlapping it in the same top-left corner) — later
+        // siblings draw on top, so first-sibling draws behind everything else.
+        sliderGO.transform.SetAsFirstSibling();
 
         var rect = sliderGO.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot     = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(24f, -100f);
-        rect.sizeDelta = new Vector2(240f, 32f);
+        rect.anchoredPosition = new Vector2(30f, -130f);
+        rect.sizeDelta = new Vector2(320f, 44f);
 
         var slider = sliderGO.GetComponent<Slider>();
         slider.minValue = 0f;
@@ -519,14 +581,17 @@ public static class ProjectSetup
 
         var labelGO = new GameObject("MinimumReserveLabel", typeof(RectTransform));
         labelGO.transform.SetParent(canvas.transform, false);
+        labelGO.transform.SetSiblingIndex(1); // right after the slider, still behind every other panel
         var labelRect = labelGO.GetComponent<RectTransform>();
         labelRect.anchorMin = new Vector2(0f, 1f);
         labelRect.anchorMax = new Vector2(0f, 1f);
         labelRect.pivot     = new Vector2(0f, 1f);
-        labelRect.anchoredPosition = new Vector2(276f, -100f);
-        labelRect.sizeDelta = new Vector2(220f, 32f);
+        labelRect.anchoredPosition = new Vector2(360f, -130f);
+        labelRect.sizeDelta = new Vector2(280f, 44f);
         var label = labelGO.AddComponent<TextMeshProUGUI>();
-        label.fontSize = 20f;
+        label.enableAutoSizing = true;
+        label.fontSizeMin = 16f;
+        label.fontSizeMax = 28f;
         label.text = "Min Reserve: 50";
 
         sliderProp.objectReferenceValue = slider;
@@ -534,12 +599,12 @@ public static class ProjectSetup
         so.ApplyModifiedProperties();
 
         EditorSceneManager.MarkSceneDirty(hud.gameObject.scene);
-        Debug.Log("[BeyondAllRoyal] Created and wired the minimum-reserve slider (unstyled placeholder). " +
+        Debug.Log("[BeyondAllRoyal] Created/refreshed the minimum-reserve slider (unstyled placeholder). " +
                   "Reposition/style it as needed, then save the scene.");
     }
 
     // -------------------------------------------------------------------------
-    // Step 2d — adds a Cancel button as a child of HUD.placementInfoPanel, wired
+    // Step 2c — adds a Cancel button as a child of HUD.placementInfoPanel, wired
     // to HUD.cancelPlacementButton. Touch devices have no Escape key or right
     // click, so BuildingPlacer.CancelPlacement() was otherwise unreachable on
     // mobile. Requires HUD (with placementInfoPanel assigned) in the open scene.
@@ -548,11 +613,11 @@ public static class ProjectSetup
     static void CreateCancelPlacementButton()
     {
         CreateHudChildButton("cancelPlacementButton", "placementInfoPanel", "CancelPlacementButton", "Cancel",
-            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-16f, 16f), new Vector2(130f, 50f));
+            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-20f, 20f), new Vector2(180f, 72f));
     }
 
     // -------------------------------------------------------------------------
-    // Step 2e — adds a Demolish button as a child of HUD.buildingInfoPanel, wired
+    // Step 2d — adds a Demolish button as a child of HUD.buildingInfoPanel, wired
     // to HUD.demolishButton. Lets the player free up a slot by voluntarily
     // destroying a building they own (HUD.OnDemolishClicked excludes the HQ, and
     // HQ.Demolish() refuses too, as a second line of defense).
@@ -562,11 +627,11 @@ public static class ProjectSetup
     static void CreateDemolishButton()
     {
         CreateHudChildButton("demolishButton", "buildingInfoPanel", "DemolishButton", "Demolish",
-            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-16f, 16f), new Vector2(140f, 50f));
+            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-20f, 20f), new Vector2(190f, 72f));
     }
 
     // -------------------------------------------------------------------------
-    // Step 2f — adds a Main Menu button as a child of HUD.endScreen, wired to
+    // Step 2e — adds a Main Menu button as a child of HUD.endScreen, wired to
     // HUD.mainMenuButton, which calls GameManager.ReturnToMainMenu(). Also
     // registers the current scene in Build Settings, since SceneManager.LoadScene
     // silently fails on a scene that isn't listed there — needed both for this
@@ -578,7 +643,7 @@ public static class ProjectSetup
     {
         EnsureSceneInBuildSettings();
         CreateHudChildButton("mainMenuButton", "endScreen", "MainMenuButton", "Main Menu",
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -90f), new Vector2(220f, 64f));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -120f), new Vector2(280f, 84f));
     }
 
     static void EnsureSceneInBuildSettings()
@@ -596,7 +661,7 @@ public static class ProjectSetup
     }
 
     // -------------------------------------------------------------------------
-    // Step 2g — populates NPCController.allProductionBuildingTypes with all 5
+    // Step 2f — populates NPCController.allProductionBuildingTypes with all 5
     // production buildings, so it has a full pool to randomly pick from each
     // match (see NPCController.AssignRandomBuildingTypes). Requires NPCController
     // in the open scene.
@@ -642,7 +707,9 @@ public static class ProjectSetup
 
     // Shared by CreateCancelPlacementButton/CreateDemolishButton/CreateMainMenuButton:
     // creates a button as a child of the GameObject referenced by HUD's
-    // parentFieldName, wires it into HUD's buttonFieldName, and skips if already assigned.
+    // parentFieldName and wires it into HUD's buttonFieldName. Destroys and
+    // rebuilds fresh each run rather than skipping if already assigned (see
+    // comment above the destroy call below).
     static void CreateHudChildButton(string buttonFieldName, string parentFieldName, string goName, string label,
         Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 sizeDelta)
     {
@@ -656,11 +723,11 @@ public static class ProjectSetup
         var so = new SerializedObject(hud);
         var buttonProp = so.FindProperty(buttonFieldName);
 
-        if (buttonProp.objectReferenceValue != null)
-        {
-            Debug.Log($"[BeyondAllRoyal] HUD already has a {buttonFieldName} assigned — skipping.");
-            return;
-        }
+        // Destroy and rebuild fresh each time (rather than skipping once
+        // created), so a re-run always reflects the current size/position/
+        // label instead of requiring the old button to be deleted by hand first.
+        var existing = buttonProp.objectReferenceValue as Button;
+        if (existing != null) Object.DestroyImmediate(existing.gameObject);
 
         var panel = so.FindProperty(parentFieldName).objectReferenceValue as GameObject;
         if (panel == null)
@@ -693,14 +760,16 @@ public static class ProjectSetup
         labelRect.offsetMax = Vector2.zero;
         var labelText = labelGO.AddComponent<TextMeshProUGUI>();
         labelText.alignment = TextAlignmentOptions.Center;
-        labelText.fontSize  = 22f;
-        labelText.text      = label;
+        labelText.enableAutoSizing = true;
+        labelText.fontSizeMin = 16f;
+        labelText.fontSizeMax = 30f;
+        labelText.text        = label;
 
         buttonProp.objectReferenceValue = buttonGO.GetComponent<Button>();
         so.ApplyModifiedProperties();
 
         EditorSceneManager.MarkSceneDirty(hud.gameObject.scene);
-        Debug.Log($"[BeyondAllRoyal] Created and wired a {label} button under {parentFieldName}. " +
+        Debug.Log($"[BeyondAllRoyal] Created/refreshed the {label} button under {parentFieldName}. " +
                   "Reposition/style it as needed, then save the scene.");
     }
 

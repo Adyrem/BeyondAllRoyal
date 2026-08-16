@@ -10,9 +10,12 @@ using UnityEngine.SceneManagement;
 // manually-wired GameObjects/HUD/MapGrid references for free instead of
 // rebuilding them from scratch) and adds a TestSceneBootstrap that pre-places
 // a starter loadout of buildings for both sides once the match starts — handy
-// for testing without building an economy up every time. Re-running this once
-// TestScene already exists just refreshes the starter-building loadout below
-// (e.g. after tuning StarterBuildingNames) rather than recreating the scene.
+// for testing without building an economy up every time. Re-running this
+// always re-copies PlayScene's current state (rather than reusing whatever
+// was captured the first time), so TestScene can't silently drift out of
+// sync with PlayScene's own HUD/theme/wiring changes — any TestScene-only
+// customization beyond the starter-building loadout below doesn't survive
+// a re-run.
 public static class TestSceneSetup
 {
     private const string PlayScenePath = "Assets/Scenes/PlayScene.unity";
@@ -34,31 +37,31 @@ public static class TestSceneSetup
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
 
-        Scene scene;
+        if (!File.Exists(PlayScenePath))
+        {
+            Debug.LogWarning($"[BeyondAllRoyal] '{PlayScenePath}' doesn't exist yet — set up and save PlayScene first.");
+            return;
+        }
+
         bool alreadyExisted = File.Exists(TestScenePath);
 
+        // Always re-copy PlayScene's current state rather than reusing
+        // whatever was captured the last time this ran — otherwise TestScene
+        // silently drifts out of sync with PlayScene's HUD/theme/wiring.
         if (alreadyExisted)
+            AssetDatabase.DeleteAsset(TestScenePath);
+
+        if (!AssetDatabase.CopyAsset(PlayScenePath, TestScenePath))
         {
-            scene = EditorSceneManager.OpenScene(TestScenePath, OpenSceneMode.Single);
+            Debug.LogError($"[BeyondAllRoyal] Failed to copy '{PlayScenePath}' to '{TestScenePath}'.");
+            return;
         }
-        else
-        {
-            if (!File.Exists(PlayScenePath))
-            {
-                Debug.LogWarning($"[BeyondAllRoyal] '{PlayScenePath}' doesn't exist yet — set up and save PlayScene first.");
-                return;
-            }
+        AssetDatabase.Refresh();
 
-            if (!AssetDatabase.CopyAsset(PlayScenePath, TestScenePath))
-            {
-                Debug.LogError($"[BeyondAllRoyal] Failed to copy '{PlayScenePath}' to '{TestScenePath}'.");
-                return;
-            }
-            AssetDatabase.Refresh();
+        var scene = EditorSceneManager.OpenScene(TestScenePath, OpenSceneMode.Single);
 
-            scene = EditorSceneManager.OpenScene(TestScenePath, OpenSceneMode.Single);
-        }
-
+        // The freshly-copied scene never has a TestSceneBootstrap (PlayScene
+        // itself doesn't have one), so this always adds a new one.
         var bootstrap = Object.FindAnyObjectByType<TestSceneBootstrap>(FindObjectsInactive.Include);
         if (bootstrap == null)
         {
@@ -74,7 +77,7 @@ public static class TestSceneSetup
         EnsureRegisteredInBuildSettings();
 
         string verb = alreadyExisted ? "Refreshed" : "Created";
-        Debug.Log($"[BeyondAllRoyal] {verb} '{TestScenePath}' with {wired}/{StarterBuildingNames.Length} " +
+        Debug.Log($"[BeyondAllRoyal] {verb} '{TestScenePath}' (re-copied from PlayScene) with {wired}/{StarterBuildingNames.Length} " +
                   "starter buildings wired. Open it directly and hit Play to test with both sides pre-stocked.");
     }
 

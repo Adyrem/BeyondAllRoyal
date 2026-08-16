@@ -1370,46 +1370,55 @@ MonoBehaviour:
     prefab: {fileID: 5742146230616505966, guid: 407ca9c727565368db2b6a5306e24c70, type: 3}
     button: {fileID: 1379908709}
     icon: {fileID: 1379908710}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 133103039}
   - data: {fileID: 11400000, guid: 6f399d53970799565a87150284cf8cab, type: 2}
     prefab: {fileID: 8500187622021829417, guid: 8d8f62cb3c698960fb65fb6f74f8b795, type: 3}
     button: {fileID: 802994421}
     icon: {fileID: 802994422}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 764200323}
   - data: {fileID: 11400000, guid: e26e3694d7eff722b8ab50a6647b62da, type: 2}
     prefab: {fileID: 4220389274151048433, guid: 12ec2abd9332f57cb8d7f5c122176564, type: 3}
     button: {fileID: 783250792}
     icon: {fileID: 783250793}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 1627992705}
   - data: {fileID: 11400000, guid: e28eb8767cadbc361acccb44ec1626dd, type: 2}
     prefab: {fileID: 5332645536472492973, guid: bb193400338e161a1ad8cef92d10b4ac, type: 3}
     button: {fileID: 230810219}
     icon: {fileID: 230810220}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 1313455417}
   - data: {fileID: 11400000, guid: 004759ed675be258abdab96b3353fc53, type: 2}
     prefab: {fileID: 7221286056993148746, guid: 35a3f3dab7586cadd95abd3dde5ee0e1, type: 3}
     button: {fileID: 553509516}
     icon: {fileID: 553509517}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 1028275661}
   - data: {fileID: 11400000, guid: 169b69a1d06af4af0a15c9ba0c99e3dd, type: 2}
     prefab: {fileID: 6951819926635362205, guid: c0b87f3888dfa40a682265ee57ae3db5, type: 3}
     button: {fileID: 1495489820}
     icon: {fileID: 1495489821}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 1989347637}
   - data: {fileID: 11400000, guid: a31de8ea8d9435575b64243cba39caf5, type: 2}
     prefab: {fileID: 7008671369250074284, guid: cd6c9a18c0693922f897b118f8d9aa73, type: 3}
     button: {fileID: 1278878236}
     icon: {fileID: 1278878237}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 737803925}
   - data: {fileID: 11400000, guid: aed6c52d2c8889202bde1977ae284675, type: 2}
     prefab: {fileID: 7497118946661570390, guid: b3e77f4a1bda55a5cb2497d3838047e8, type: 3}
     button: {fileID: 1043473840}
     icon: {fileID: 1043473841}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 1147128225}
   - data: {fileID: 11400000, guid: c60a0cc7a723a82bab505870b9dfc474, type: 2}
     prefab: {fileID: 4424857364647358145, guid: 536183810a3ab0d97bc97b6dc1927bf7, type: 3}
     button: {fileID: 109851933}
     icon: {fileID: 109851934}
+    nameLabel: {fileID: 0}
     costLabel: {fileID: 2131577467}
 --- !u!114 &458469542
 MonoBehaviour:

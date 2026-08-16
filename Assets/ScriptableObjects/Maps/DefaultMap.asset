@@ -15,6 +15,6 @@ MonoBehaviour:
   layoutName: Default (Two-Lane)
   columns: 9
   rows: 8
-  innerFraction: 0.08
-  outerFraction: 0.9
+  innerFraction: 0.1
+  outerFraction: 0.8
   widthFraction: 0.9

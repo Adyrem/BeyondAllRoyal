@@ -12,9 +12,10 @@ public class BuildingShopPanel : MonoBehaviour
     {
         public BuildingData data;
         public GameObject   prefab;
-        public Button       button;       // assign the UI Button in Inspector
-        public Image        icon;         // optional icon Image on the button; set to data.spriteFrameA
-        public TextMeshProUGUI costLabel; // optional cost label on the button
+        public Button       button;        // assign the UI Button in Inspector
+        public Image        icon;          // optional icon Image; set to data.spriteFrameA
+        public TextMeshProUGUI nameLabel;  // optional building-name label
+        public TextMeshProUGUI costLabel;  // optional cost label
     }
 
     [SerializeField] private ShopEntry[] shopEntries;
@@ -29,7 +30,21 @@ public class BuildingShopPanel : MonoBehaviour
             var p = entry.prefab;
 
             if (entry.icon != null)
+            {
                 entry.icon.sprite = d.spriteFrameA;
+
+                // The generated sprite itself is a colorless badge shape — in
+                // the world, each building's own color comes from its
+                // prefab's SpriteRenderer tint, not the sprite pixels. Read
+                // that same tint here so the shop icon matches instead of
+                // rendering plain white.
+                var prefabRenderer = p != null ? p.GetComponent<SpriteRenderer>() : null;
+                if (prefabRenderer != null)
+                    entry.icon.color = prefabRenderer.color;
+            }
+
+            if (entry.nameLabel != null)
+                entry.nameLabel.text = d.buildingName;
 
             if (entry.costLabel != null)
                 entry.costLabel.text = $"{d.metalCostToBuild:F0}";
