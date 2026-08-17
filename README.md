@@ -2,7 +2,7 @@
 
 A mobile-first 2D RTS built in Unity, inspired by *Beyond All Reason* and *Clash Royale*, with a futuristic theme. Units move and fight autonomously — no micro required. Destroy the enemy HQ to win.
 
-For the full game design (resources, map, units, buildings), see [CLAUDE.md](CLAUDE.md), [Requirements.md](Requirements.md), and [UnitDesign.md](UnitDesign.md). For current implementation status, see [Checklist.md](Checklist.md).
+For the full game design (resources, map, units, buildings), see [CLAUDE.md](CLAUDE.md), [Requirements.md](Documentation/Requirements.md), and [UnitDesign.md](Documentation/UnitDesign.md). For current implementation status, see [Checklist.md](Documentation/Checklist.md).
 
 ## Requirements
 

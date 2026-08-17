@@ -1,0 +1,112 @@
+/* @theme beyondallroyal */
+
+/* Palette lifted directly from Assets/Scripts/Editor/UITheme.cs so the deck
+   matches the in-game dark-purple UI. */
+:root {
+  --bar-bg: #120e19;
+  --bar-panel: #281d36;
+  --bar-accent: #8b5cf6;
+  --bar-accent-soft: #b79bfa;
+  --bar-disabled: #2d2834;
+  --bar-muted: #baabd3;
+  --bar-text: #ffffff;
+}
+
+section {
+  background: var(--bar-bg);
+  color: var(--bar-text);
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  padding: 55px 75px;
+  font-size: 32px;
+}
+
+h1, h2, h3 {
+  color: var(--bar-accent-soft);
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 1.9em;
+  border-bottom: 3px solid var(--bar-accent);
+  padding-bottom: 0.2em;
+  margin-bottom: 0.6em;
+}
+
+h2 {
+  font-size: 1.6em;
+  margin-bottom: 0.7em;
+}
+
+p, li { font-size: 1em; }
+
+a { color: var(--bar-accent-soft); }
+
+strong { color: var(--bar-accent-soft); }
+
+section::after {
+  color: var(--bar-muted);
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+th {
+  background: var(--bar-panel);
+  color: var(--bar-accent-soft);
+  padding: 6px 12px;
+  border: 1px solid var(--bar-disabled);
+}
+
+td {
+  padding: 6px 12px;
+  border: 1px solid var(--bar-disabled);
+}
+
+blockquote {
+  border-left: 4px solid var(--bar-accent);
+  color: var(--bar-muted);
+  padding-left: 1em;
+  font-style: normal;
+}
+
+code {
+  background: var(--bar-panel);
+  color: var(--bar-accent-soft);
+  border-radius: 4px;
+}
+
+pre {
+  background: var(--bar-panel);
+  border-radius: 8px;
+}
+
+section.lead {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+section.lead h1 {
+  font-size: 2.6em;
+  border-bottom: none;
+}
+
+section.section {
+  background: linear-gradient(135deg, var(--bar-bg) 0%, var(--bar-panel) 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+section.section h1 {
+  font-size: 3em;
+  border-bottom: none;
+  color: var(--bar-text);
+}
+
+ul, ol { line-height: 1.6; margin-bottom: 0.7em; }
+
+li::marker { color: var(--bar-accent); }

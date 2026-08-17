@@ -35,9 +35,9 @@ A shared **minimum metal reserve** (`ResourceManager.MinimumMetalReserve`, adjus
 
 ## Units & Counter System
 
-There are **5 units**, each produced by its own dedicated building. The counter chart is a circulant tournament: every unit counters exactly 2 others and is countered by exactly 2 others. The two tower types are also included in the chart — each tower counters 2 unit types and is weak to 2 others, with Unit C being neutral against both towers. See [UnitDesign.md](UnitDesign.md) for the full matrix and stat templates.
+There are **5 units**, each produced by its own dedicated building. The counter chart is a circulant tournament: every unit counters exactly 2 others and is countered by exactly 2 others. The two tower types are also included in the chart — each tower counters 2 unit types and is weak to 2 others, with Unit C being neutral against both towers. See [UnitDesign.md](Documentation/UnitDesign.md) for the full matrix and stat templates.
 
-Unit names and stats are TBD (fill in UnitDesign.md).
+Unit names and stats are TBD (fill in Documentation/UnitDesign.md).
 
 ## Buildings
 

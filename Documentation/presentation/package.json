@@ -1,0 +1,17 @@
+{
+  "name": "presentation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "marp slides.md --theme-set theme.css --pdf --allow-local-files -o ../../BeyondAllRoyal-Praesentation.pdf",
+    "watch": "marp slides.md --theme-set theme.css --allow-local-files --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@marp-team/marp-cli": "^4.5.0"
+  }
+}
