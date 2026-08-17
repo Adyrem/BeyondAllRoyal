@@ -38,7 +38,17 @@ public class TestSceneBootstrap : MonoBehaviour
             var go = Instantiate(b.prefab);
             var building = go.GetComponent<Building>();
             building.Initialize(owner);
-            MapGrid.Instance.TryPlaceBuilding(building, origin);
+
+            // origin just came from TryGetFreeSlot above, so this should
+            // always succeed — but if it somehow doesn't, destroy the
+            // instance rather than leaving a starter building alive with no
+            // grid slot (GridOrigin left at its (0,0) default).
+            if (!MapGrid.Instance.TryPlaceBuilding(building, origin))
+            {
+                Debug.LogWarning($"[TestSceneBootstrap] Failed to place starter building '{b.data.buildingName}' " +
+                                  $"for {owner} at {origin}. Destroying it.");
+                Destroy(go);
+            }
         }
     }
 }

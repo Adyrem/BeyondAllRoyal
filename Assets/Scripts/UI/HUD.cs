@@ -19,8 +19,13 @@ public class HUD : MonoBehaviour
     [SerializeField] private Button            shopToggleButton;
 
     [Header("Production control")]
+    // The old standalone production panel covered the play field with
+    // redundant info (buildingInfoPanel already shows the selected
+    // building's name) — kept only so Awake can force it permanently
+    // hidden regardless of whatever the scene has it set to. The actual
+    // pause/resume control now lives inside buildingInfoPanel (wired by
+    // ProjectSetup.CreateToggleProductionButton).
     [SerializeField] private GameObject      productionPanel;
-    [SerializeField] private TextMeshProUGUI productionBuildingName;
     [SerializeField] private Button          toggleProductionButton;
     [SerializeField] private TextMeshProUGUI toggleProductionLabel;
 
@@ -41,6 +46,12 @@ public class HUD : MonoBehaviour
     [SerializeField] private Slider          minimumReserveSlider;
     [SerializeField] private TextMeshProUGUI minimumReserveLabel;
 
+    [Header("Pause")]
+    [SerializeField] private Button          pauseButton;
+    [SerializeField] private GameObject      pausePanel;
+    [SerializeField] private Button          resumeButton;
+    [SerializeField] private Button          pauseMainMenuButton;
+
     private ProductionBuilding selectedProduction;
     private Building           selectedBuilding;
 
@@ -51,6 +62,7 @@ public class HUD : MonoBehaviour
 
         endScreen?.SetActive(false);
         productionPanel?.SetActive(false);
+        pausePanel?.SetActive(false);
         if (buildingInfoPanel  != null) buildingInfoPanel.SetActive(false);
         if (placementInfoPanel != null) placementInfoPanel.SetActive(false);
         if (shopPanel != null) shopPanel.gameObject.SetActive(false);
@@ -64,6 +76,9 @@ public class HUD : MonoBehaviour
         cancelPlacementButton?.onClick.AddListener(() => BuildingPlacer.Instance?.CancelPlacement());
         demolishButton?.onClick.AddListener(OnDemolishClicked);
         mainMenuButton?.onClick.AddListener(() => GameManager.Instance.ReturnToMainMenu());
+        pauseButton?.onClick.AddListener(OnPauseClicked);
+        resumeButton?.onClick.AddListener(OnResumeClicked);
+        pauseMainMenuButton?.onClick.AddListener(() => GameManager.Instance.ReturnToMainMenu());
     }
 
     private void Start()
@@ -119,6 +134,32 @@ public class HUD : MonoBehaviour
     {
         endScreen.SetActive(true);
         endScreenText.text = result == GameState.Victory ? "Victory!" : "Defeat";
+        // Pausing after the match is already decided doesn't make sense.
+        pauseButton?.gameObject.SetActive(false);
+    }
+
+    // -------------------------------------------------------------------------
+    // Pause
+    // -------------------------------------------------------------------------
+
+    private void OnPauseClicked()
+    {
+        var gameManager = GameManager.Instance;
+        if (gameManager == null) return;
+
+        gameManager.Pause();
+        // Pause() no-ops outside GameState.InGame (e.g. the brief Pregame
+        // window while MapGrid is still generating) — only show the panel if
+        // it actually took effect, so it can't imply "paused" while
+        // Time.timeScale is still running at 1.
+        if (gameManager.IsPaused)
+            pausePanel?.SetActive(true);
+    }
+
+    private void OnResumeClicked()
+    {
+        GameManager.Instance?.Resume();
+        pausePanel?.SetActive(false);
     }
 
     // -------------------------------------------------------------------------
@@ -138,22 +179,23 @@ public class HUD : MonoBehaviour
                 buildingInfoName.text = building.Data.buildingName;
         }
 
-        // The min-reserve slider sits behind buildingInfoPanel (z-order fixed
-        // in ProjectSetup.CreateMinimumReserveSlider) in the same top-left
-        // corner, so it shouldn't still be draggable through the panel now
-        // covering it.
+        // The min-reserve slider sits in the same top-left corner as
+        // buildingInfoPanel — hide it outright (not just disable it) while
+        // the panel is open, since z-order alone wasn't reliably keeping it
+        // from showing on top.
         if (minimumReserveSlider != null)
-            minimumReserveSlider.interactable = !hasBuilding;
+            minimumReserveSlider.gameObject.SetActive(!hasBuilding);
+        if (minimumReserveLabel != null)
+            minimumReserveLabel.gameObject.SetActive(!hasBuilding);
 
         demolishButton?.gameObject.SetActive(hasBuilding && building is not HQ);
 
         // Pausing production only makes sense for buildings that produce units —
         // not the energy/metal generators (Tesla Tower, Metal Factory) or towers.
+        // The button lives inside buildingInfoPanel itself now (see the
+        // "Production control" header above), so no separate panel to show.
         bool hasProd = selectedProduction != null;
-        productionPanel?.SetActive(hasProd);
         toggleProductionButton?.gameObject.SetActive(hasProd);
-        if (hasProd && productionBuildingName != null)
-            productionBuildingName.text = building.Data.buildingName;
 
         // Selecting an existing building while the shop is open would otherwise
         // leave both panels competing for the same screen space. (BuildingSelector

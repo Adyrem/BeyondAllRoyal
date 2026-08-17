@@ -18,6 +18,13 @@ public class BuildingShopPanel : MonoBehaviour
         public TextMeshProUGUI costLabel;  // optional cost label
     }
 
+    // Applied to the icon when a building can't currently be afforded, on top
+    // of the button's own dimmed background (UITheme.ApplyButtonColors) —
+    // that alone read as too subtle against the shop row's already-dark
+    // background, so icon opacity and text color shift too, making
+    // affordability obvious at a glance instead of a faint tint change.
+    private const float UnaffordableIconAlpha = 0.35f;
+
     [SerializeField] private ShopEntry[] shopEntries;
 
     private void Start()
@@ -67,9 +74,9 @@ public class BuildingShopPanel : MonoBehaviour
 
     // Only runs while the panel is active (i.e. the shop is open), so this
     // doesn't cost anything the rest of the time. Unity's Button already
-    // renders non-interactable buttons with a dimmed/disabled tint and blocks
-    // their onClick, so this alone both greys out and disables selection for
-    // anything the player can't currently afford.
+    // blocks onClick and dims its background while non-interactable, and
+    // SetAffordabilityVisuals below layers icon/text changes on top so
+    // affordability reads clearly at a glance.
     private void Update()
     {
         if (ResourceManager.Instance == null) return;
@@ -78,7 +85,26 @@ public class BuildingShopPanel : MonoBehaviour
         foreach (var entry in shopEntries)
         {
             if (entry.button == null || entry.data == null) continue;
-            entry.button.interactable = metal >= entry.data.metalCostToBuild;
+            bool affordable = metal >= entry.data.metalCostToBuild;
+            entry.button.interactable = affordable;
+            SetAffordabilityVisuals(entry, affordable);
         }
+    }
+
+    private static void SetAffordabilityVisuals(ShopEntry entry, bool affordable)
+    {
+        if (entry.icon != null)
+        {
+            // Preserve the building's own tint (see Start above) — only alpha changes.
+            var c = entry.icon.color;
+            c.a = affordable ? 1f : UnaffordableIconAlpha;
+            entry.icon.color = c;
+        }
+
+        if (entry.nameLabel != null)
+            entry.nameLabel.color = affordable ? UITheme.Text : UITheme.DisabledText;
+
+        if (entry.costLabel != null)
+            entry.costLabel.color = affordable ? UITheme.MutedText : UITheme.Warning;
     }
 }

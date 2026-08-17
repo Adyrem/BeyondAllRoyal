@@ -27,5 +27,5 @@ MonoBehaviour:
   injectionRange: 8
   attackDamage: 20
   attackRange: 6
-  attacksPerSecond: 5
+  attacksPerSecond: 1.6666666
   energyCostPerShot: 10

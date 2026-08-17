@@ -57,11 +57,15 @@ public static class MainMenuSetup
             new Vector2(0.5f, 0.5f), new Vector2(0f, -160f), new Vector2(460f, 110f), UITheme.Accent, Color.white);
         var multiplayerButton   = BuildButton(canvas.transform, "MultiplayerButton", "Multiplayer (Coming Soon)",
             new Vector2(0.5f, 0.5f), new Vector2(0f, -300f), new Vector2(460f, 110f), UITheme.Disabled, UITheme.DisabledText);
+        // Below Multiplayer, with headroom to spare on a 1920-tall reference canvas.
+        var (volumeSlider, volumeLabel) = BuildVolumeSlider(canvas.transform);
 
         var so = new SerializedObject(controller);
         so.FindProperty("difficultyDropdown").objectReferenceValue = dropdown;
         so.FindProperty("singleplayerButton").objectReferenceValue = singleplayerButton;
         so.FindProperty("multiplayerButton").objectReferenceValue  = multiplayerButton;
+        so.FindProperty("volumeSlider").objectReferenceValue       = volumeSlider;
+        so.FindProperty("volumeLabel").objectReferenceValue        = volumeLabel;
         so.ApplyModifiedPropertiesWithoutUndo();
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -209,6 +213,52 @@ public static class MainMenuSetup
         // MainMenuController.Awake() populates Easy/Medium/Hard at runtime; no
         // need to author options here.
         return tmpDropdown;
+    }
+
+    // Master volume, applied globally via SoundSettings/AudioListener.volume.
+    // MainMenuController.Awake() initializes the slider from the persisted
+    // value and updates the label text live as it's dragged.
+    private static (Slider slider, TextMeshProUGUI label) BuildVolumeSlider(Transform parent)
+    {
+        var labelGO = new GameObject("VolumeLabel", typeof(RectTransform));
+        labelGO.transform.SetParent(parent, false);
+        var labelRect = labelGO.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot     = new Vector2(0.5f, 0f);
+        labelRect.anchoredPosition = new Vector2(0f, -435f);
+        labelRect.sizeDelta = new Vector2(460f, 60f);
+        var labelText = labelGO.AddComponent<TextMeshProUGUI>();
+        labelText.text      = "Volume: 50%";
+        labelText.fontSize  = 46f;
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.color     = UITheme.MutedText;
+
+        var sliderGO = DefaultControls.CreateSlider(new DefaultControls.Resources());
+        sliderGO.name = "VolumeSlider";
+        sliderGO.transform.SetParent(parent, false);
+        var rect = sliderGO.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot     = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, -445f);
+        rect.sizeDelta = new Vector2(460f, 70f);
+
+        var slider = sliderGO.GetComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value    = 0.5f;
+
+        // Colored inline (like the dropdown above) rather than deferred to
+        // ThemeSetup, since ThemeSetup only styles PlayScene's HUD.
+        var background = sliderGO.transform.Find("Background")?.GetComponent<Image>();
+        if (background != null) background.color = UITheme.Panel;
+        var fill = slider.fillRect != null ? slider.fillRect.GetComponent<Image>() : null;
+        if (fill != null) fill.color = UITheme.Accent;
+        var handle = slider.handleRect != null ? slider.handleRect.GetComponent<Image>() : null;
+        if (handle != null) handle.color = UITheme.Accent;
+
+        return (slider, labelText);
     }
 
     private static Button BuildButton(Transform parent, string goName, string label,

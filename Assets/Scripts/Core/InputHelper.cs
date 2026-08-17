@@ -72,15 +72,23 @@ public static class InputHelper
     // also register as a world tap — but a tap on a passive panel background
     // (no Selectable underneath) still reaches the world, so e.g. tapping near
     // an info panel to deselect a building still works.
+    // Reused across calls instead of allocating a new PointerEventData/List
+    // every time — this runs from multiple Update()s on every input frame,
+    // so on mobile that's otherwise a steady stream of GC churn for no reason.
+    private static PointerEventData      pointerDataBuffer;
+    private static readonly List<RaycastResult> raycastResultsBuffer = new();
+
     public static bool TapHitInteractiveUI()
     {
         if (EventSystem.current == null) return false;
 
-        var pointerData = new PointerEventData(EventSystem.current) { position = TapPosition() };
-        var results = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(pointerData, results);
+        pointerDataBuffer ??= new PointerEventData(EventSystem.current);
+        pointerDataBuffer.position = TapPosition();
 
-        foreach (var result in results)
+        raycastResultsBuffer.Clear();
+        EventSystem.current.RaycastAll(pointerDataBuffer, raycastResultsBuffer);
+
+        foreach (var result in raycastResultsBuffer)
             if (result.gameObject.GetComponentInParent<Selectable>() != null)
                 return true;
 

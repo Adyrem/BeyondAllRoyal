@@ -28,6 +28,11 @@ public class BuildingSelector : MonoBehaviour
         // Don't steal input from BuildingPlacer when it's active
         if (BuildingPlacer.Instance != null && BuildingPlacer.Instance.IsPlacing) return;
 
+        // Belt-and-suspenders alongside the pause overlay's own full-screen
+        // raycast blocker (see BuildingPlacer.Update) — an explicit guard
+        // that doesn't depend on HUD's pausePanel being wired correctly.
+        if (GameManager.Instance != null && GameManager.Instance.IsPaused) return;
+
         // A tap that hits an interactive UI element (e.g. the Demolish/Pause
         // Production buttons) must not also be treated as a world-space tap, or
         // this would immediately deselect the very building those buttons just

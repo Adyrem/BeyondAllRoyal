@@ -5,7 +5,6 @@ public class ProductionBuilding : Building
     [SerializeField] private HealthBar productionBar;
 
     private ProductionBuildingData productionData;
-    private bool metalReserved;
 
     public bool IsProducing { get; private set; } = true;
     public float UnitMetalCost => productionData.unitToProduced.metalCostPerUnit;
@@ -42,13 +41,6 @@ public class ProductionBuilding : Building
 
     private void TickProduction()
     {
-        if (!metalReserved)
-        {
-            if (!ResourceManager.Instance.TrySpendMetalAboveReserve(Owner, productionData.unitToProduced.metalCostPerUnit))
-                return;
-            metalReserved = true;
-        }
-
         // Let the buffer accumulate from the passive trickle (Building.Update)
         // up to the per-unit threshold before spending anything — previously
         // this drained EnergyBuffer by a little bit every single frame as soon
@@ -58,9 +50,17 @@ public class ProductionBuilding : Building
         float required = productionData.unitToProduced.energyCostPerUnit;
         if (EnergyBuffer < required) return;
 
+        // Metal is only spent once a unit is actually ready to spawn, not
+        // reserved the moment production starts — if the pool can't afford it
+        // right now, production just stalls with a full energy buffer (this
+        // ticks again next frame, so it spawns the instant metal frees up)
+        // instead of reserving metal early and losing it with no refund path
+        // if the building is demolished or paused before it fires.
+        if (!ResourceManager.Instance.TrySpendMetalAboveReserve(Owner, productionData.unitToProduced.metalCostPerUnit))
+            return;
+
         TryConsumeEnergy(required);
         SpawnUnit();
-        metalReserved = false;
     }
 
     private void SpawnUnit()

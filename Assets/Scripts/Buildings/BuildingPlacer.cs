@@ -50,7 +50,12 @@ public class BuildingPlacer : MonoBehaviour
 
     private void Update()
     {
-        if (selectedData == null || !MapGrid.Instance.IsReady) return;
+        if (selectedData == null || MapGrid.Instance == null || !MapGrid.Instance.IsReady) return;
+        // The pause overlay's own full-screen raycast blocker already stops
+        // this via TapHitInteractiveUI() below in the normal case, but that
+        // depends on HUD's pausePanel being wired correctly — this is an
+        // explicit, code-visible guarantee that doesn't rely on UI wiring.
+        if (GameManager.Instance != null && GameManager.Instance.IsPaused) return;
 
         if (InputHelper.CancelPressed())
         {

@@ -9,14 +9,22 @@ public class CounterChartData : ScriptableObject
 
     public CounterResult GetResult(EntityType attacker, EntityType defender)
     {
-        int a = (int)attacker;
-        int d = (int)defender;
-        if (a < 0 || a >= Size || d < 0 || d >= Size)
+        // The real risk here isn't attacker/defender being out-of-range for
+        // the live EntityType enum (they're cast from valid enum values, so
+        // that's essentially always true) — it's `matrix` itself being a
+        // stale, too-short array serialized before a new EntityType was
+        // added, which the old bounds check against `Size` alone wouldn't
+        // catch and would instead throw IndexOutOfRangeException below.
+        if (matrix == null || matrix.Length != Size * Size)
         {
-            Debug.LogError($"[CounterChartData] EntityType values ({a},{d}) are out of range for Size={Size}. " +
-                           "Did you add a new EntityType without re-running 'Initialize Default Counter Chart'?");
+            Debug.LogError($"[CounterChartData] matrix has {matrix?.Length ?? 0} entries but Size={Size} " +
+                           $"expects {Size * Size}. Did you add a new EntityType without re-running " +
+                           "'Initialize Default Counter Chart'?");
             return CounterResult.Even;
         }
+
+        int a = (int)attacker;
+        int d = (int)defender;
         return matrix[a * Size + d];
     }
 

@@ -15,8 +15,15 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private Button       multiplayerButton;
     [SerializeField] private string       playSceneName = "PlayScene";
 
+    [SerializeField] private Slider           volumeSlider;
+    [SerializeField] private TextMeshProUGUI  volumeLabel;
+
     private void Awake()
     {
+        // Applied here too (not just in GameManager for PlayScene), so
+        // whichever scene loads first this session starts at the right level.
+        SoundSettings.Apply();
+
         if (difficultyDropdown != null)
         {
             difficultyDropdown.ClearOptions();
@@ -24,6 +31,13 @@ public class MainMenuController : MonoBehaviour
             difficultyDropdown.value = (int)AIDifficulty.Medium;
             difficultyDropdown.RefreshShownValue();
         }
+
+        if (volumeSlider != null)
+        {
+            volumeSlider.SetValueWithoutNotify(SoundSettings.Volume);
+            volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
+        }
+        UpdateVolumeLabel(SoundSettings.Volume);
 
         singleplayerButton?.onClick.AddListener(OnSingleplayerClicked);
 
@@ -38,5 +52,17 @@ public class MainMenuController : MonoBehaviour
         GameSetup.Mode       = GameMode.Singleplayer;
         GameSetup.Difficulty = difficultyDropdown != null ? (AIDifficulty)difficultyDropdown.value : AIDifficulty.Medium;
         SceneManager.LoadScene(playSceneName);
+    }
+
+    private void OnVolumeChanged(float value)
+    {
+        SoundSettings.Volume = value; // also applies to AudioListener.volume
+        UpdateVolumeLabel(value);
+    }
+
+    private void UpdateVolumeLabel(float value)
+    {
+        if (volumeLabel != null)
+            volumeLabel.text = $"Volume: {value * 100f:F0}%";
     }
 }

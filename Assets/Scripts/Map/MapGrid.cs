@@ -146,9 +146,25 @@ public class MapGrid : MonoBehaviour
         if (prefab == null) return;
         var go       = Instantiate(prefab, pos, Quaternion.identity);
         var building = go.GetComponent<Building>();
-        if (building == null) return;
+        if (building == null)
+        {
+            Debug.LogError($"[MapGrid] HQ prefab '{prefab.name}' has no Building component. Destroying it.");
+            Destroy(go);
+            return;
+        }
         building.Initialize(owner);
-        TryPlaceBuilding(building, gridOrigin);
+
+        // A failure here means the match has no functioning win-condition
+        // target for this side (GameManager.OnHQDestroyed could never fire
+        // for it) — almost certainly a misconfigured map layout (grid too
+        // small for the HQ's footprint), loud enough to not go unnoticed.
+        if (!TryPlaceBuilding(building, gridOrigin))
+        {
+            Debug.LogError($"[MapGrid] Failed to place {owner}'s HQ at {gridOrigin} — map layout may be " +
+                            "misconfigured (grid too small for the HQ's footprint, or the slot is already " +
+                            "occupied). Destroying the unplaced HQ.");
+            Destroy(go);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -223,11 +239,19 @@ public class MapGrid : MonoBehaviour
         return new Vector2Int(col, row);
     }
 
-    public void RemoveBuilding(Vector2Int origin, Vector2Int size)
+    // Only vacates slots this building actually occupies, rather than
+    // blindly clearing whatever's at its GridOrigin — a building that never
+    // successfully placed (TryPlaceBuilding returned false but the caller
+    // kept it alive anyway) still defaults to GridOrigin (0,0), and without
+    // this check, that building dying later would incorrectly vacate
+    // whatever real building occupies (0,0).
+    public void RemoveBuilding(Building building)
     {
+        var origin = building.GridOrigin;
+        var size   = building.Data.slotSize;
         for (int x = origin.x; x < origin.x + size.x; x++)
         for (int y = origin.y; y < origin.y + size.y; y++)
-            if (slots.TryGetValue(new Vector2Int(x, y), out var slot))
+            if (slots.TryGetValue(new Vector2Int(x, y), out var slot) && slot.OccupyingBuilding == building)
                 slot.Vacate();
     }
 

@@ -25,7 +25,6 @@ public static class ThemeSetup
 
         StyleText(so, "metalText");
         StyleText(so, "endScreenText");
-        StyleText(so, "productionBuildingName");
         StyleText(so, "toggleProductionLabel");
         StyleText(so, "placementBuildingName");
         StyleText(so, "placementCostText");
@@ -38,14 +37,18 @@ public static class ThemeSetup
         StyleButton(so, "cancelPlacementButton");
         StyleButton(so, "demolishButton");
         StyleButton(so, "mainMenuButton");
+        StyleButton(so, "pauseButton");
+        StyleButton(so, "resumeButton");
+        StyleButton(so, "pauseMainMenuButton");
 
         StylePanelBackground(so, "endScreen");
         StylePanelBackground(so, "buildingInfoPanel");
         StylePanelBackground(so, "placementInfoPanel");
-        StylePanelBackground(so, "productionPanel");
 
         StyleSlider(so, "minimumReserveSlider");
-        StyleSlider(so, "energyBar");
+        // energyBar is a read-only progress display, not a real control — style
+        // it without a draggable handle so it doesn't look interactive.
+        StyleSlider(so, "energyBar", interactive: false);
 
         EditorSceneManager.MarkSceneDirty(hud.gameObject.scene);
 
@@ -78,9 +81,13 @@ public static class ThemeSetup
     }
 
     // A panel sized to just barely fit one small text label reads as "no
-    // panel at all" against the busy game-world background behind it.
-    private const float MinPanelWidth  = 480f;
-    private const float MinPanelHeight = 200f;
+    // panel at all" against the busy game-world background behind it. Sized
+    // to comfortably fit buildingInfoPanel's two bottom-corner buttons
+    // (Pause/Resume Production at 280px wide, Demolish at 220px) side by
+    // side without touching — the widest requirement of the panels this
+    // applies to.
+    private const float MinPanelWidth  = 640f;
+    private const float MinPanelHeight = 280f;
 
     // Recolors the panel's own background Image (bumping its alpha to at
     // least NearOpaqueAlpha, since a near-transparent panel is exactly the
@@ -122,7 +129,7 @@ public static class ThemeSetup
         image.color = color;
     }
 
-    private static void StyleSlider(SerializedObject hudSo, string fieldName)
+    private static void StyleSlider(SerializedObject hudSo, string fieldName, bool interactive = true)
     {
         var slider = hudSo.FindProperty(fieldName)?.objectReferenceValue as Slider;
         if (slider == null) return;
@@ -133,8 +140,26 @@ public static class ThemeSetup
         var fill = slider.fillRect != null ? slider.fillRect.GetComponent<Image>() : null;
         if (fill != null) fill.color = UITheme.Accent;
 
-        var handle = slider.handleRect != null ? slider.handleRect.GetComponent<Image>() : null;
-        if (handle != null) handle.color = UITheme.Accent;
+        slider.interactable = interactive;
+
+        // A draggable-looking handle on a value the player can't actually
+        // change (e.g. the building-info energy bar) reads as broken/stuck
+        // UI rather than a progress display — hide it entirely instead of
+        // just coloring it, so the bar reads as informational at a glance.
+        var handleObj = slider.handleRect != null ? slider.handleRect.gameObject : null;
+        if (handleObj != null)
+        {
+            if (interactive)
+            {
+                handleObj.SetActive(true);
+                var handle = handleObj.GetComponent<Image>();
+                if (handle != null) handle.color = UITheme.Accent;
+            }
+            else
+            {
+                handleObj.SetActive(false);
+            }
+        }
     }
 
     // Recolors the panel's own background (if any) and each entry's name/cost
