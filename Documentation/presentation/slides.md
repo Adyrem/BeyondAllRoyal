@@ -48,6 +48,8 @@ Inspiriert von *Beyond All Reason* und *Clash Royale*
 4. Gebäude ausser Reichweite
 5. Einheiten ausser Reichweite
 
+Bewegung nur nach vorne, nie zurück, um Feinde zu jagen. Verhindert dass die ganze Armee umdreht.
+
 ---
 
 ## Ressource: Metal
@@ -156,12 +158,11 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 
 ---
 
-## Prinzip: gleiche Werte, anderes Tempo
+## Prinzip: gleiche Werte, unterschiedliche Taktik
 
-- NPC bekommt zufällig 3 von 5 Gebäudetypen
-- Baut nur über einer Metal-Reserve-Schwelle
-- Schwierigkeitsgrad ändert nur das Tempo der KI
-- Einheitenwerte bleiben für Spieler und KI gleich
+- Einheiten-/Gebäudewerte bleiben für Spieler und KI immer gleich
+- Easy/Medium: 3 zufällige Gebäudetypen, festes Tempo
+- Hard: alle 5 Typen, baut reaktiv gegen die häufigste gegnerische Einheit
 
 ---
 
