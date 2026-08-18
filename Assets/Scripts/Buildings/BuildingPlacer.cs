@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // Attach to a scene GameObject (e.g. "BuildingPlacer").
@@ -46,6 +47,7 @@ public class BuildingPlacer : MonoBehaviour
         selectedPrefab = null;
         ghost.Hide();
         HUD.Instance?.HidePlacementInfo();
+        ClearEnergyCoverage();
     }
 
     private void Update()
@@ -66,6 +68,7 @@ public class BuildingPlacer : MonoBehaviour
         if (awaitingFreshPress)
         {
             ghost.Hide();
+            UpdateEnergyCoverage(null);
             if (InputHelper.TapBegan()) awaitingFreshPress = false;
             return;
         }
@@ -79,6 +82,7 @@ public class BuildingPlacer : MonoBehaviour
         if (!InputHelper.IsPressed() && !released)
         {
             ghost.Hide();
+            UpdateEnergyCoverage(null);
             return;
         }
 
@@ -93,6 +97,7 @@ public class BuildingPlacer : MonoBehaviour
         if (InputHelper.TapHitInteractiveUI())
         {
             ghost.Hide();
+            UpdateEnergyCoverage(null);
             return;
         }
 
@@ -104,6 +109,7 @@ public class BuildingPlacer : MonoBehaviour
         if (!MapGrid.Instance.IsOnSide(worldPos, Owner.Player))
         {
             ghost.Hide();
+            UpdateEnergyCoverage(null);
             if (released) CancelPlacement();
             return;
         }
@@ -113,9 +119,50 @@ public class BuildingPlacer : MonoBehaviour
         Vector3    snapPos  = MapGrid.Instance.GetBuildingCenterPosition(gridPos, selectedData.slotSize);
 
         ghost.UpdateState(snapPos, valid, selectedData);
+        UpdateEnergyCoverage(snapPos);
 
         if (valid && released)
             Place(gridPos);
+    }
+
+    // Tints every one of the player's own slots to show how many energy
+    // injectors (HQ, Tesla Tower) currently reach it, so placing a new Tesla
+    // Tower can be planned to actually extend coverage instead of stacking on
+    // top of what's already there. Recomputed every frame while placement is
+    // active (cheap enough — this only runs during the relatively rare
+    // placement flow, not the main game loop) so a dragged ghost's own
+    // prospective range is reflected live via ghostPos.
+    private void UpdateEnergyCoverage(Vector3? ghostPos)
+    {
+        var injectors = new List<(Vector3 pos, float range)>();
+        foreach (var b in BuildingRegistry.All)
+        {
+            if (b.Owner != Owner.Player) continue;
+            if (b is IEnergyInjector injector)
+                injectors.Add((b.transform.position, injector.InjectionRange));
+        }
+
+        // The building currently being placed counts too, if it's itself an
+        // injector (only Tesla Tower is player-placeable right now), so the
+        // player sees the resulting coverage before committing to a spot.
+        if (ghostPos.HasValue && selectedData is TeslaTowerData teslaData)
+            injectors.Add((ghostPos.Value, teslaData.injectionRange));
+
+        foreach (var slot in MapGrid.Instance.GetSlotsForOwner(Owner.Player))
+        {
+            int count = 0;
+            foreach (var (pos, range) in injectors)
+                if (((Vector2)slot.transform.position - (Vector2)pos).sqrMagnitude <= range * range)
+                    count++;
+            slot.SetEnergyCoverage(count);
+        }
+    }
+
+    private void ClearEnergyCoverage()
+    {
+        if (MapGrid.Instance == null) return;
+        foreach (var slot in MapGrid.Instance.GetSlotsForOwner(Owner.Player))
+            slot.SetEnergyCoverage(0);
     }
 
     private void Place(Vector2Int gridPos)

@@ -80,10 +80,18 @@ public static partial class ProjectSetup
         tesla.energyBufferCapacity  = 50f;
         tesla.slotSize              = new Vector2Int(1, 1);
         tesla.injectionRatePerBuilding = 15f;
-        tesla.injectionRange        = 6f;
+        tesla.injectionRange        = 5f;
         EditorUtility.SetDirty(tesla);
 
-        // Metal Factory
+        // Metal Factory — metalPerSecond (baseline) + burstMetalAmount (on a full
+        // 80-capacity energy buffer) are tuned so that being boosted by one Tesla
+        // Tower (injectionRatePerBuilding 15/sec, on top of the 1/sec passive
+        // trickle every building gets) reproduces the old flat 3/sec exactly:
+        // buffer fills every 80/(1+15) = 5s, so 1 (baseline) + 10/5 (burst) = 3/sec.
+        // Unsupported, it only has the 1/sec trickle to fill on (80s/burst), so a
+        // lone factory drops to ~1.1/sec — Tesla support now meaningfully matters,
+        // and stacks further with more towers in range (each adds another 15/sec
+        // to the fill rate, so bursts come proportionally more often).
         var factory = CreateSO<MetalFactoryData>($"{SOBuildings}/MetalFactory.asset");
         factory.buildingName         = "Metal Factory";
         factory.maxHealth            = 150f;
@@ -91,7 +99,8 @@ public static partial class ProjectSetup
         factory.energyCostToBuild    = 40f;
         factory.energyBufferCapacity = 80f;
         factory.slotSize             = new Vector2Int(1, 1);
-        factory.metalPerSecond       = 3f;
+        factory.metalPerSecond       = 1f;
+        factory.burstMetalAmount     = 10f;
         EditorUtility.SetDirty(factory);
 
         // HQ — energyCostToBuild = 0 so it starts pre-constructed
@@ -104,7 +113,7 @@ public static partial class ProjectSetup
         hq.slotSize                    = new Vector2Int(3, 3);
         hq.metalPerSecond              = 10f; // sole source of passive metal income now — see ResourceManager.cs
         hq.injectionRatePerBuilding    = 5f;
-        hq.injectionRange              = 8f;
+        hq.injectionRange              = 7f;
         hq.attackDamage                = 20f;
         hq.attackRange                 = 6f;
         hq.attacksPerSecond            = 5f / 3f; // was 5 — cut to a third, it was firing way too fast

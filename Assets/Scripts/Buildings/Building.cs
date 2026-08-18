@@ -77,6 +77,20 @@ public class Building : MonoBehaviour
     private void TickConstruction()
     {
         float needed = data.energyCostToBuild - energySpentOnConstruction;
+
+        // Let the buffer actually accumulate from the passive trickle up to
+        // whichever comes first — the remaining construction cost, or the
+        // buffer's own capacity — before spending anything, instead of
+        // draining a sliver every single frame as energy trickled in. That
+        // kept EnergyBuffer (and anything reading it, like HUD's energy bar)
+        // pinned at ~0 for the entire construction duration instead of
+        // visibly filling — the same bug already fixed once for
+        // ProductionBuilding's per-unit cycle, just never applied here too.
+        // If the buffer is smaller than what's still needed, this naturally
+        // cycles fill-then-spend-then-refill until enough has accumulated.
+        float threshold = Mathf.Min(needed, data.energyBufferCapacity);
+        if (EnergyBuffer < threshold) return;
+
         float use = Mathf.Min(EnergyBuffer, needed);
         EnergyBuffer -= use;
         energySpentOnConstruction += use;

@@ -22,4 +22,5 @@ MonoBehaviour:
   spriteFrameA: {fileID: 21300000, guid: 553a88b7841fd869bb5f4561adce9855, type: 3}
   spriteFrameB: {fileID: 21300000, guid: 53f752b68a4cbd295a2039321f5d6693, type: 3}
   spriteCycleInterval: 1
-  metalPerSecond: 3
+  metalPerSecond: 1
+  burstMetalAmount: 10

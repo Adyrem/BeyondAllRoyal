@@ -1,8 +1,10 @@
 using UnityEngine;
 
-public class TeslaTower : Building
+public class TeslaTower : Building, IEnergyInjector
 {
     private TeslaTowerData teslaData;
+
+    public float InjectionRange => teslaData.injectionRange;
 
     protected override void Awake()
     {

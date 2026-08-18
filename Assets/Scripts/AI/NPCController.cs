@@ -14,6 +14,9 @@ using UnityEngine;
 // Hard plays differently: it gets every production type instead of a random
 // subset, and only builds a new one reactively, in response to the player's
 // army, rather than cycling through them on a timer — see TryPlaceCounterBuilding.
+// Until the player has fielded anything to react to, Hard has no threat to
+// counter and no defense need either, so it pours all its metal into economy
+// buildings instead of standing up production it has no reason for yet.
 public class NPCController : MonoBehaviour
 {
     [System.Serializable]
@@ -165,6 +168,19 @@ public class NPCController : MonoBehaviour
         float reserve = MetalSurplusReserve();
         bool hasEconomyTypes = economyBuildingTypes != null && economyBuildingTypes.Length > 0;
 
+        // Hard, before the player has fielded anything to react to: there's
+        // no threat yet, and no defense need either (the player has nothing
+        // to attack with), so pour everything into economy instead of
+        // building production it has no reason for — no reserve held back
+        // and no random chance gate, unlike the shared economy path below,
+        // so the opening economy ramps up as fast as metal allows.
+        EntityType? threat = difficulty == AIDifficulty.Hard ? MostCommonPlayerEntityType() : null;
+        if (difficulty == AIDifficulty.Hard && threat == null)
+        {
+            if (hasEconomyTypes) TryPlaceFromList(economyBuildingTypes, ref nextEconomyIndex, 0f);
+            return;
+        }
+
         if (hasEconomyTypes && timeSinceLastBuild >= forceEconomyBuildAfterSeconds
             && TryPlaceFromList(economyBuildingTypes, ref nextEconomyIndex, 0f))
         {
@@ -178,30 +194,20 @@ public class NPCController : MonoBehaviour
         }
 
         if (difficulty == AIDifficulty.Hard)
-            TryPlaceCounterBuilding(reserve);
+            TryPlaceCounterBuilding(threat.Value, reserve);
         else
             TryPlaceFromList(buildingTypes, ref nextTypeIndex, reserve);
     }
 
     // Hard-only: rather than cycling through production types on a timer like
     // Easy/Medium, only builds a new production building in direct response to
-    // the player's army — it finds the player's most common live unit type and,
-    // if it doesn't already have an active producer of something that counters
-    // it, builds one. With nothing built yet there's nothing to react to (and no
-    // defense at all otherwise), so the very first production building is just
-    // whichever type comes first in the pool — every build after that is reactive.
-    private void TryPlaceCounterBuilding(float reserve)
+    // the player's army — builds whichever pool type counters the given threat
+    // EntityType, unless it already has one active. Only ever called once a
+    // threat actually exists (see TryPlaceNextBuilding, which pours resources
+    // into economy instead while the player hasn't fielded anything yet).
+    private void TryPlaceCounterBuilding(EntityType threat, float reserve)
     {
         if (buildingTypes.Length == 0) return;
-
-        if (activeProduction.Count == 0)
-        {
-            TryPlaceOne(buildingTypes[0], reserve);
-            return;
-        }
-
-        var threat = MostCommonPlayerEntityType();
-        if (threat == null) return; // no live player units to react to yet
 
         var chart = GameManager.Instance.Settings.counterChart;
         foreach (var type in buildingTypes)
@@ -209,7 +215,7 @@ public class NPCController : MonoBehaviour
             if (type.data is not ProductionBuildingData prodData || prodData.unitToProduced == null) continue;
 
             var candidateType = prodData.unitToProduced.entityType;
-            if (chart.GetResult(candidateType, threat.Value) != CounterResult.Strong) continue;
+            if (chart.GetResult(candidateType, threat) != CounterResult.Strong) continue;
 
             // Already have this exact counter online — nothing new needed for this threat.
             if (activeProduction.Exists(b => b != null && b.ProducedEntityType == candidateType)) continue;

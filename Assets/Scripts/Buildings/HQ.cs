@@ -1,10 +1,12 @@
 using UnityEngine;
 
-public class HQ : Building
+public class HQ : Building, IEnergyInjector
 {
     private HQData hqData;
     private float attackCooldown;
     private Unit currentTarget;
+
+    public float InjectionRange => hqData.injectionRange;
 
     protected override void Awake()
     {

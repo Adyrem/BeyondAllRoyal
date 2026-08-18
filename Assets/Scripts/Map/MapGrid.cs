@@ -283,6 +283,15 @@ public class MapGrid : MonoBehaviour
     public Vector3 GetWorldPosition(Vector2Int gridPos) =>
         slots.TryGetValue(gridPos, out var s) ? s.transform.position : Vector3.zero;
 
+    // Used by BuildingPlacer's energy-coverage highlight to tint every slot
+    // on the given side, without exposing the underlying dictionary itself.
+    public IEnumerable<BuildingSlot> GetSlotsForOwner(Owner owner)
+    {
+        foreach (var slot in slots.Values)
+            if (slot.Side == owner)
+                yield return slot;
+    }
+
     // True if worldPos lies on the given owner's half of the map (Player rows sit
     // at negative Y, NPC rows at positive Y — see GenerateSlots). Used by units to
     // detect an enemy incursion onto their own side.
