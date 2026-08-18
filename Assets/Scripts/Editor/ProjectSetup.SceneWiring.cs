@@ -248,9 +248,11 @@ public static partial class ProjectSetup
         var sliderGO = DefaultControls.CreateSlider(new DefaultControls.Resources());
         sliderGO.name = "MinimumReserveSlider";
         sliderGO.transform.SetParent(canvas.transform, false);
-        // Sits behind every other HUD panel (e.g. buildingInfoPanel, which can
-        // otherwise end up overlapping it in the same top-left corner) — later
-        // siblings draw on top, so first-sibling draws behind everything else.
+        // Starting sibling order only — the real guarantee that it stays
+        // behind buildingInfoPanel (same top-left corner) is enforced at
+        // runtime in HUD.OnBuildingSelected, which re-asserts the panel as
+        // the last (frontmost) sibling every time it's shown, since a
+        // one-time Editor-time order alone wasn't reliably holding.
         sliderGO.transform.SetAsFirstSibling();
 
         var rect = sliderGO.GetComponent<RectTransform>();

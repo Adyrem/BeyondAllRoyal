@@ -5,7 +5,9 @@ public class MapGrid : MonoBehaviour
 {
     public static MapGrid Instance { get; private set; }
 
-    [SerializeField] private MapLayoutData layout;
+    [SerializeField] private MapLayoutData layout;      // Medium / fallback if no per-difficulty override is assigned
+    [SerializeField] private MapLayoutData easyLayout;  // optional smaller-map override for AIDifficulty.Easy
+    [SerializeField] private MapLayoutData hardLayout;  // optional larger-map override for AIDifficulty.Hard
     [SerializeField] private Camera        gameCamera;
     [SerializeField] private GameObject    slotPrefab;
     [SerializeField] private GameObject    playerHQPrefab;
@@ -30,11 +32,34 @@ public class MapGrid : MonoBehaviour
 
     private void Start()
     {
+        // Overwrites the serialized `layout` field itself (in memory only —
+        // doesn't touch the asset) so every method below that already reads
+        // `layout` picks up the difficulty-appropriate one for free, without
+        // needing its own resolution logic. OnDrawGizmos runs in the Editor
+        // before Start() has ever executed, so it still shows the Medium/
+        // fallback layout there, which is the right thing to preview anyway.
+        layout = ResolveLayout();
+
         var cam = gameCamera != null ? gameCamera : Camera.main;
         ComputeLayout(cam.orthographicSize, cam.aspect);
         GenerateSlots();
         PlaceHQs();
         IsReady = true;
+    }
+
+    // Easy plays on a smaller map, Hard on a larger one (see CLAUDE.md/NPC
+    // section) — falls back to the Medium/default `layout` if no override is
+    // assigned for the current difficulty (e.g. testing PlayScene directly
+    // without going through the main menu, where GameSetup.Difficulty
+    // defaults to Medium anyway).
+    private MapLayoutData ResolveLayout()
+    {
+        return GameSetup.Difficulty switch
+        {
+            AIDifficulty.Easy => easyLayout != null ? easyLayout : layout,
+            AIDifficulty.Hard => hardLayout != null ? hardLayout : layout,
+            _                 => layout,
+        };
     }
 
     // -------------------------------------------------------------------------

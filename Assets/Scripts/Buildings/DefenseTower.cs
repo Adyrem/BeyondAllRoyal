@@ -19,6 +19,9 @@ public class DefenseTower : Building
         base.Update();
         if (!IsConstructed || !IsGameActive) return;
 
+        if (towerData.healthRegenPerSecond > 0f)
+            Heal(towerData.healthRegenPerSecond * Time.deltaTime);
+
         TickAutoAttack(towerData.attackRange, ref currentTarget, ref attackCooldown, TryFire);
     }
 

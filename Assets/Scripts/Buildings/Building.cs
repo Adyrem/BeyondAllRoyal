@@ -109,6 +109,17 @@ public class Building : MonoBehaviour
         if (currentHealth <= 0f) DestroyBuilding();
     }
 
+    // Regenerates health, clamped to maxHealth. Only DefenseTower currently
+    // calls this (a slow passive regen so towers don't stay permanently
+    // crippled by chip damage between fights) — lives here since health and
+    // healthBar are Building's own.
+    public void Heal(float amount)
+    {
+        if (isDestroyed || amount <= 0f) return;
+        currentHealth = Mathf.Min(currentHealth + amount, data.maxHealth);
+        healthBar?.SetFraction(HealthFraction);
+    }
+
     // Override in DefenseTower to expose the tower's EntityType for counter lookups
     public virtual EntityType? GetEntityType() => null;
 

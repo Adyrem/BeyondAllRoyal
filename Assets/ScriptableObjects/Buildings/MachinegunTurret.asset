@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MachinegunTurret
   m_EditorClassIdentifier: Assembly-CSharp::TowerData
   buildingName: MachinegunTurret
-  maxHealth: 200
+  maxHealth: 300
   metalCostToBuild: 60
   energyCostToBuild: 40
   slotSize: {x: 2, y: 2}
@@ -23,7 +23,8 @@ MonoBehaviour:
   spriteFrameB: {fileID: 21300000, guid: c8114b729dd760edda722619e25f73cf, type: 3}
   spriteCycleInterval: 1
   entityType: 5
-  damage: 15
+  damage: 22
   attackRange: 5
   attacksPerSecond: 2
-  energyCostPerShot: 5
+  energyCostPerShot: 2
+  healthRegenPerSecond: 3

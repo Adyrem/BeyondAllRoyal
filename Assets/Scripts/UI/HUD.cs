@@ -152,8 +152,14 @@ public class HUD : MonoBehaviour
         // window while MapGrid is still generating) — only show the panel if
         // it actually took effect, so it can't imply "paused" while
         // Time.timeScale is still running at 1.
-        if (gameManager.IsPaused)
-            pausePanel?.SetActive(true);
+        if (gameManager.IsPaused && pausePanel != null)
+        {
+            pausePanel.SetActive(true);
+            // Re-assert topmost every time, in case buildingInfoPanel (or
+            // anything else) was pushed to the end more recently — the pause
+            // overlay must always win.
+            pausePanel.transform.SetAsLastSibling();
+        }
     }
 
     private void OnResumeClicked()
@@ -175,18 +181,26 @@ public class HUD : MonoBehaviour
         if (buildingInfoPanel != null)
         {
             buildingInfoPanel.SetActive(hasBuilding);
-            if (hasBuilding && buildingInfoName != null)
-                buildingInfoName.text = building.Data.buildingName;
+            if (hasBuilding)
+            {
+                if (buildingInfoName != null)
+                    buildingInfoName.text = building.Data.buildingName;
+
+                // The min-reserve slider sits in the same top-left corner.
+                // Re-assert this every time the panel is shown (rather than
+                // relying on whatever sibling order Setup Scenes left things
+                // in once) so it stays on top regardless of what else has
+                // been created/reordered under the Canvas since — later
+                // siblings draw on top.
+                buildingInfoPanel.transform.SetAsLastSibling();
+            }
         }
 
-        // The min-reserve slider sits in the same top-left corner as
-        // buildingInfoPanel — hide it outright (not just disable it) while
-        // the panel is open, since z-order alone wasn't reliably keeping it
-        // from showing on top.
+        // Belt-and-suspenders alongside the z-order above: the slider stays
+        // visible (fully covered, not hidden) but can't be dragged through
+        // the panel now covering it.
         if (minimumReserveSlider != null)
-            minimumReserveSlider.gameObject.SetActive(!hasBuilding);
-        if (minimumReserveLabel != null)
-            minimumReserveLabel.gameObject.SetActive(!hasBuilding);
+            minimumReserveSlider.interactable = !hasBuilding;
 
         demolishButton?.gameObject.SetActive(hasBuilding && building is not HQ);
 

@@ -61,9 +61,15 @@ public static partial class ProjectSetup
         CreateProductionBuildingData("SkimmerPad", new Vector2Int(2,2), 50f, 50f, 100f, "Hovercraft");
         CreateProductionBuildingData("IronWorks",  new Vector2Int(3,3), 80f, 80f, 100f, "HeavyTank");
 
-        // Towers                     name                 entityType                        hp    dmg  range  atkSpd  nrgShot  slot              metalBuild  nrgBuild  buffer
-        CreateTowerData("MachinegunTurret", EntityType.MachinegunTurret, 200f, 15f, 5f, 2.0f,  5f, new Vector2Int(2,2),  60f,  40f,  80f);
-        CreateTowerData("RailgunTurret",    EntityType.RailgunTurret,    300f, 60f, 8f, 0.5f, 20f, new Vector2Int(3,3), 100f,  80f, 150f);
+        // Towers — hp/damage bumped and energyCostPerShot cut well below what the earlier
+        // values needed: at the shared passive trickle rate (1/sec, GameSettings.
+        // buildingPassiveTrickleRate), the old costs (5 and 20) needed a nearby Tesla Tower
+        // just to fire at any reasonable rate at all, which made towers feel unusably weak
+        // in practice. Also given a slow passive health regen (healthRegenPerSecond) so
+        // chip damage doesn't permanently cripple a tower between fights.
+        //                 name                 entityType                        hp    dmg  range  atkSpd  nrgShot  slot              metalBuild  nrgBuild  buffer  regen
+        CreateTowerData("MachinegunTurret", EntityType.MachinegunTurret, 300f, 22f, 5f, 2.0f, 2f, new Vector2Int(2,2),  60f,  40f,  80f, 3f);
+        CreateTowerData("RailgunTurret",    EntityType.RailgunTurret,    450f, 85f, 8f, 0.5f, 8f, new Vector2Int(3,3), 100f,  80f, 150f, 4f);
 
         // Tesla Tower
         var tesla = CreateSO<TeslaTowerData>($"{SOBuildings}/TeslaTower.asset");
@@ -96,7 +102,7 @@ public static partial class ProjectSetup
         hq.energyCostToBuild           = 0f;
         hq.energyBufferCapacity        = 200f;
         hq.slotSize                    = new Vector2Int(3, 3);
-        hq.metalPerSecond              = 2f;
+        hq.metalPerSecond              = 10f; // sole source of passive metal income now — see ResourceManager.cs
         hq.injectionRatePerBuilding    = 5f;
         hq.injectionRange              = 8f;
         hq.attackDamage                = 20f;
@@ -289,7 +295,7 @@ public static partial class ProjectSetup
 
     static void CreateTowerData(string name, EntityType type,
         float hp, float dmg, float range, float atkSpd, float nrgShot,
-        Vector2Int slot, float metalBuild, float nrgBuild, float buffer)
+        Vector2Int slot, float metalBuild, float nrgBuild, float buffer, float healthRegen)
     {
         var d = CreateSO<TowerData>($"{SOBuildings}/{name}.asset");
         d.buildingName         = name;
@@ -303,17 +309,32 @@ public static partial class ProjectSetup
         d.metalCostToBuild     = metalBuild;
         d.energyCostToBuild    = nrgBuild;
         d.energyBufferCapacity = buffer;
+        d.healthRegenPerSecond = healthRegen;
         EditorUtility.SetDirty(d);
     }
 
+    // DefaultMap is the Medium/fallback layout, wired to MapGrid.layout in the Inspector.
+    // SmallMap/LargeMap are optional per-difficulty overrides (MapGrid.easyLayout/
+    // hardLayout — see MapGrid.ResolveLayout) — a smaller battlefield for Easy, a
+    // larger one for Hard. All three share the same screen-fraction framing
+    // (inner/outer/width) since MapGrid's grid math already packs however many
+    // columns/rows into that same fixed screen space, so only column/row counts
+    // need to differ between sizes.
     static void CreateDefaultMapLayout()
     {
-        var layout = CreateSO<MapLayoutData>($"{SOMaps}/DefaultMap.asset");
-        layout.layoutName    = "Default (Two-Lane)";
-        layout.columns       = 9; // odd width so the HQ's 3-wide footprint centers exactly (see MapGrid.PlaceHQs)
-        layout.rows          = 8; // back 3 rows reserved for HQ, front 5 rows free for buildings
+        CreateMapLayout("DefaultMap", "Default (Two-Lane)", columns: 9, rows: 8);
+        CreateMapLayout("SmallMap",   "Small (Easy)",        columns: 7, rows: 6);
+        CreateMapLayout("LargeMap",   "Large (Hard)",        columns: 11, rows: 10);
+    }
+
+    static void CreateMapLayout(string assetName, string layoutName, int columns, int rows)
+    {
+        var layout = CreateSO<MapLayoutData>($"{SOMaps}/{assetName}.asset");
+        layout.layoutName    = layoutName;
+        layout.columns       = columns; // odd width so the HQ's 3-wide footprint centers exactly (see MapGrid.PlaceHQs)
+        layout.rows          = rows;    // back 3 rows reserved for HQ, the rest free for buildings
         layout.innerFraction = 0.08f;
-        layout.outerFraction = 0.90f;
+        layout.outerFraction = 0.78f;
         layout.widthFraction = 0.90f;
         EditorUtility.SetDirty(layout);
     }

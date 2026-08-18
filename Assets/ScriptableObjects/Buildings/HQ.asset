@@ -22,7 +22,7 @@ MonoBehaviour:
   spriteFrameA: {fileID: 21300000, guid: 15146aff869623591a6959e1b64414fe, type: 3}
   spriteFrameB: {fileID: 21300000, guid: b1c30222e186f542aa4dbc694c8bc437, type: 3}
   spriteCycleInterval: 1
-  metalPerSecond: 2
+  metalPerSecond: 10
   injectionRatePerBuilding: 5
   injectionRange: 8
   attackDamage: 20

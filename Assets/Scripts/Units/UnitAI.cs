@@ -61,12 +61,17 @@ public class UnitAI : MonoBehaviour
     private void PickTarget()
     {
         // Defending home turf comes first: an enemy unit that has pushed onto our
-        // own side of the map takes priority over everything else below.
-        var homeIntruder = FindNearestEnemyUnit(u => MapGrid.Instance.IsOnSide(u.transform.position, unit.Owner));
-        if (homeIntruder != null)
+        // own side of the map takes priority over everything else below — but
+        // only pursued if it's ahead (or already in range). A home intruder
+        // that's behind is left alone rather than chased, consistent with
+        // units never moving backward — see IsAheadOrLevel and the ahead-only
+        // fallback searches below.
+        var nearestIntruder = FindNearestEnemyUnit(u => MapGrid.Instance.IsOnSide(u.transform.position, unit.Owner));
+        if (nearestIntruder != null &&
+            (InRange(nearestIntruder.transform.position) || IsAheadOrLevel(nearestIntruder.transform.position)))
         {
             targetKind = TargetKind.Unit;
-            currentUnitTarget = homeIntruder;
+            currentUnitTarget = nearestIntruder;
             return;
         }
 
@@ -76,34 +81,55 @@ public class UnitAI : MonoBehaviour
         bool buildingInRange = nearestBuilding != null && InRange(nearestBuilding.transform.position);
         bool unitInRange     = nearestUnit != null && InRange(nearestUnit.transform.position);
 
-        // Priority: home intruders > buildings in range > units in range > buildings out of range > units out of range.
+        // Priority: home intruders > buildings in range > units in range > nearest building ahead > nearest unit ahead.
+        // A target already in range can always be fought regardless of direction
+        // (see HandleUnitCombat/HandleBuildingAssault) — the "ahead" restriction
+        // only applies to picking something to chase down while out of range, so
+        // a closer enemy that's behind is skipped in favor of a farther one that's
+        // actually reachable without reversing course.
         if (buildingInRange)
         {
             targetKind = TargetKind.Building;
             currentBuildingTarget = nearestBuilding;
+            return;
         }
-        else if (unitInRange)
+        if (unitInRange)
         {
             targetKind = TargetKind.Unit;
             currentUnitTarget = nearestUnit;
+            return;
         }
-        else if (nearestBuilding != null)
+
+        var buildingAhead = FindNearestEnemyBuilding(b => IsAheadOrLevel(b.transform.position));
+        if (buildingAhead != null)
         {
             targetKind = TargetKind.Building;
-            currentBuildingTarget = nearestBuilding;
+            currentBuildingTarget = buildingAhead;
+            return;
         }
-        else if (nearestUnit != null)
+
+        var unitAhead = FindNearestEnemyUnit(u => IsAheadOrLevel(u.transform.position));
+        if (unitAhead != null)
         {
             targetKind = TargetKind.Unit;
-            currentUnitTarget = nearestUnit;
+            currentUnitTarget = unitAhead;
+            return;
         }
-        else
-        {
-            targetKind = TargetKind.None;
-        }
+
+        targetKind = TargetKind.None;
     }
 
     private bool InRange(Vector3 pos) => SqrDistance2D(transform.position, pos) <= unit.AttackRange * unit.AttackRange;
+
+    // True if pos doesn't require moving backward to reach — Player units
+    // advance toward +Y (the NPC's side), NPC units toward -Y. Units should
+    // only ever push forward; something behind can still be fought if it's
+    // already in range, but is never picked as something to chase.
+    private bool IsAheadOrLevel(Vector3 pos)
+    {
+        float forward = unit.Owner == Owner.Player ? 1f : -1f;
+        return (pos.y - transform.position.y) * forward >= 0f;
+    }
 
     private static float SqrDistance2D(Vector3 a, Vector3 b) => ((Vector2)a - (Vector2)b).sqrMagnitude;
 
@@ -214,13 +240,14 @@ public class UnitAI : MonoBehaviour
         return nearest;
     }
 
-    private Building FindNearestEnemyBuilding()
+    private Building FindNearestEnemyBuilding(System.Func<Building, bool> filter = null)
     {
         Building nearest = null;
         float nearestSqrDist = float.MaxValue;
         foreach (var b in BuildingRegistry.All)
         {
             if (b.Owner == unit.Owner) continue;
+            if (filter != null && !filter(b)) continue;
             float sqrDist = SqrDistance2D(transform.position, b.transform.position);
             if (sqrDist < nearestSqrDist) { nearest = b; nearestSqrDist = sqrDist; }
         }

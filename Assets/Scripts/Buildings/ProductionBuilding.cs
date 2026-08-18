@@ -8,6 +8,7 @@ public class ProductionBuilding : Building
 
     public bool IsProducing { get; private set; } = true;
     public float UnitMetalCost => productionData.unitToProduced.metalCostPerUnit;
+    public EntityType ProducedEntityType => productionData.unitToProduced.entityType;
 
     public void SetProducing(bool producing) => IsProducing = producing;
 

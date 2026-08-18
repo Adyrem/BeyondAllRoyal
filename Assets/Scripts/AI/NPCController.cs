@@ -11,6 +11,9 @@ using UnityEngine;
 // forces one through if it hasn't placed anything in a while. All placed
 // production buildings are kept continuously producing. AIDifficulty (chosen
 // on the main menu) scales the pacing of all of the above — see ApplyDifficulty.
+// Hard plays differently: it gets every production type instead of a random
+// subset, and only builds a new one reactively, in response to the player's
+// army, rather than cycling through them on a timer — see TryPlaceCounterBuilding.
 public class NPCController : MonoBehaviour
 {
     [System.Serializable]
@@ -22,7 +25,8 @@ public class NPCController : MonoBehaviour
 
     [Tooltip("All production building types the AI can be assigned (one per unit type). " +
              "At match start, randomBuildingTypeCount of these are picked at random into the " +
-             "active round-robin — see AssignRandomBuildingTypes().")]
+             "active round-robin — see AssignRandomBuildingTypes(). Hard skips this and gets " +
+             "the full pool instead, since it picks reactively rather than round-robining.")]
     [SerializeField] private BuildingType[] allProductionBuildingTypes;
     [SerializeField] private int randomBuildingTypeCount = 3;
     [SerializeField] private float placementCheckInterval = 3f;
@@ -55,10 +59,12 @@ public class NPCController : MonoBehaviour
     private int   nextEconomyIndex;
     private float checkTimer;
     private float timeSinceLastBuild;
+    private AIDifficulty difficulty;
 
     private void Awake()
     {
-        ApplyDifficulty(GameSetup.Difficulty);
+        difficulty = GameSetup.Difficulty;
+        ApplyDifficulty(difficulty);
     }
 
     // Scales the Inspector-set values (treated as the Medium baseline) by a
@@ -96,12 +102,21 @@ public class NPCController : MonoBehaviour
 
     // Picks randomBuildingTypeCount distinct entries out of allProductionBuildingTypes
     // for this match's active round-robin, so each singleplayer game gives the AI a
-    // different mix of unit types instead of always the same fixed set.
+    // different mix of unit types instead of always the same fixed set. Hard skips
+    // this restriction entirely — it gets the full pool, since it picks which type to
+    // build reactively (see TryPlaceCounterBuilding) rather than round-robining, and
+    // needs every type available to actually counter whatever the player fields.
     private void AssignRandomBuildingTypes()
     {
         if (allProductionBuildingTypes == null || allProductionBuildingTypes.Length == 0)
         {
             buildingTypes = System.Array.Empty<BuildingType>();
+            return;
+        }
+
+        if (difficulty == AIDifficulty.Hard)
+        {
+            buildingTypes = (BuildingType[])allProductionBuildingTypes.Clone();
             return;
         }
 
@@ -142,7 +157,9 @@ public class NPCController : MonoBehaviour
 
     // Forces an economy building through if the NPC has been stalled too long;
     // otherwise occasionally tries an economy building, falling through (or if
-    // that fails) to the normal production-building round-robin.
+    // that fails) to production. Economy stays proactive at every difficulty —
+    // only the choice of *which* production building to build next differs for
+    // Hard (see TryPlaceCounterBuilding).
     private void TryPlaceNextBuilding()
     {
         float reserve = MetalSurplusReserve();
@@ -160,7 +177,65 @@ public class NPCController : MonoBehaviour
             return;
         }
 
-        TryPlaceFromList(buildingTypes, ref nextTypeIndex, reserve);
+        if (difficulty == AIDifficulty.Hard)
+            TryPlaceCounterBuilding(reserve);
+        else
+            TryPlaceFromList(buildingTypes, ref nextTypeIndex, reserve);
+    }
+
+    // Hard-only: rather than cycling through production types on a timer like
+    // Easy/Medium, only builds a new production building in direct response to
+    // the player's army — it finds the player's most common live unit type and,
+    // if it doesn't already have an active producer of something that counters
+    // it, builds one. With nothing built yet there's nothing to react to (and no
+    // defense at all otherwise), so the very first production building is just
+    // whichever type comes first in the pool — every build after that is reactive.
+    private void TryPlaceCounterBuilding(float reserve)
+    {
+        if (buildingTypes.Length == 0) return;
+
+        if (activeProduction.Count == 0)
+        {
+            TryPlaceOne(buildingTypes[0], reserve);
+            return;
+        }
+
+        var threat = MostCommonPlayerEntityType();
+        if (threat == null) return; // no live player units to react to yet
+
+        var chart = GameManager.Instance.Settings.counterChart;
+        foreach (var type in buildingTypes)
+        {
+            if (type.data is not ProductionBuildingData prodData || prodData.unitToProduced == null) continue;
+
+            var candidateType = prodData.unitToProduced.entityType;
+            if (chart.GetResult(candidateType, threat.Value) != CounterResult.Strong) continue;
+
+            // Already have this exact counter online — nothing new needed for this threat.
+            if (activeProduction.Exists(b => b != null && b.ProducedEntityType == candidateType)) continue;
+
+            if (TryPlaceOne(type, reserve)) return;
+        }
+    }
+
+    // The player EntityType with the most live units on the field right now, or
+    // null if the player has none — used to decide what Hard should counter.
+    private EntityType? MostCommonPlayerEntityType()
+    {
+        var counts = new Dictionary<EntityType, int>();
+        foreach (var u in UnitRegistry.All)
+        {
+            if (u.Owner != Owner.Player) continue;
+            counts.TryGetValue(u.EntityType, out int count);
+            counts[u.EntityType] = count + 1;
+        }
+
+        EntityType? best = null;
+        int bestCount = 0;
+        foreach (var kv in counts)
+            if (kv.Value > bestCount) { best = kv.Key; bestCount = kv.Value; }
+
+        return best;
     }
 
     // Tries each building type in round-robin order starting at nextIndex, placing
@@ -170,41 +245,49 @@ public class NPCController : MonoBehaviour
     {
         for (int i = 0; i < types.Length; i++)
         {
-            int idx  = (nextIndex + i) % types.Length;
-            var type = types[idx];
-            if (type.data == null || type.prefab == null) continue;
-
-            if (ResourceManager.Instance.NPCMetal < type.data.metalCostToBuild + reserve)
-                continue; // no spare metal — let existing production buildings fund units first
-
-            if (!ResourceManager.Instance.TrySpendMetal(Owner.NPC, type.data.metalCostToBuild))
-                continue;
-
-            if (!MapGrid.Instance.TryGetFreeSlot(type.data.slotSize, Owner.NPC, out var origin))
-            {
-                ResourceManager.Instance.AddMetal(Owner.NPC, type.data.metalCostToBuild);
-                continue;
-            }
-
-            var go       = Object.Instantiate(type.prefab);
-            var building = go.GetComponent<Building>();
-            building.Initialize(Owner.NPC);
-
-            if (!MapGrid.Instance.TryPlaceBuilding(building, origin))
-            {
-                ResourceManager.Instance.AddMetal(Owner.NPC, type.data.metalCostToBuild);
-                Destroy(go);
-                continue;
-            }
-
-            var prod = go.GetComponent<ProductionBuilding>();
-            if (prod != null) activeProduction.Add(prod);
+            int idx = (nextIndex + i) % types.Length;
+            if (!TryPlaceOne(types[idx], reserve)) continue;
 
             nextIndex = (idx + 1) % types.Length;
-            timeSinceLastBuild = 0f;
             return true; // one placement per interval
         }
         return false;
+    }
+
+    // Attempts to place a single building type, respecting affordability (reserve)
+    // and slot availability. Refunds metal if placement fails after spending it.
+    private bool TryPlaceOne(BuildingType type, float reserve)
+    {
+        if (type.data == null || type.prefab == null) return false;
+
+        if (ResourceManager.Instance.NPCMetal < type.data.metalCostToBuild + reserve)
+            return false; // no spare metal — let existing production buildings fund units first
+
+        if (!ResourceManager.Instance.TrySpendMetal(Owner.NPC, type.data.metalCostToBuild))
+            return false;
+
+        if (!MapGrid.Instance.TryGetFreeSlot(type.data.slotSize, Owner.NPC, out var origin))
+        {
+            ResourceManager.Instance.AddMetal(Owner.NPC, type.data.metalCostToBuild);
+            return false;
+        }
+
+        var go       = Object.Instantiate(type.prefab);
+        var building = go.GetComponent<Building>();
+        building.Initialize(Owner.NPC);
+
+        if (!MapGrid.Instance.TryPlaceBuilding(building, origin))
+        {
+            ResourceManager.Instance.AddMetal(Owner.NPC, type.data.metalCostToBuild);
+            Destroy(go);
+            return false;
+        }
+
+        var prod = go.GetComponent<ProductionBuilding>();
+        if (prod != null) activeProduction.Add(prod);
+
+        timeSinceLastBuild = 0f;
+        return true;
     }
 
     // Grows with the NPC's own base (sum of metalCostPerUnit across all active

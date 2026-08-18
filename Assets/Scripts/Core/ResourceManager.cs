@@ -1,11 +1,12 @@
 using UnityEngine;
 
+// Holds each side's metal pool and gates spending against it — it does not
+// produce metal itself. Income comes entirely from buildings (HQ.metalPerSecond,
+// MetalFactory.metalPerSecond) calling AddMetal, so an empty scene with no
+// buildings correctly accrues nothing.
 public class ResourceManager : MonoBehaviour
 {
     public static ResourceManager Instance { get; private set; }
-
-    [SerializeField] private float playerMetalPerSecond = 5f;
-    [SerializeField] private float npcMetalPerSecond = 5f;
 
     [Tooltip("Shared minimum metal reserve, adjustable via the HUD slider. Used as a floor by the " +
              "NPC's own building-placement reserve, and enforced against unit-production spending " +
@@ -28,13 +29,6 @@ public class ResourceManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-    }
-
-    private void Update()
-    {
-        if (GameManager.Instance.CurrentState != GameState.InGame) return;
-        playerMetal += playerMetalPerSecond * Time.deltaTime;
-        npcMetal += npcMetalPerSecond * Time.deltaTime;
     }
 
     public bool TrySpendMetal(Owner owner, float amount)

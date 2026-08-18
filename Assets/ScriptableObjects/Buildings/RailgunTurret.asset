@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: RailgunTurret
   m_EditorClassIdentifier: Assembly-CSharp::TowerData
   buildingName: RailgunTurret
-  maxHealth: 300
+  maxHealth: 450
   metalCostToBuild: 100
   energyCostToBuild: 80
   slotSize: {x: 3, y: 3}
@@ -23,7 +23,8 @@ MonoBehaviour:
   spriteFrameB: {fileID: 21300000, guid: 087892e25a7607e51b943184e9d16a56, type: 3}
   spriteCycleInterval: 1
   entityType: 6
-  damage: 60
+  damage: 85
   attackRange: 8
   attacksPerSecond: 0.5
-  energyCostPerShot: 20
+  energyCostPerShot: 8
+  healthRegenPerSecond: 4
