@@ -32,7 +32,7 @@ Inspiriert von *Beyond All Reason* und *Clash Royale*
 
 ---
 
-## Kein Mikro nötig
+## Kein Micro nötig
 
 - Einheiten kämpfen vollständig autonom
 - Kein Klicken auf jede einzelne Einheit
@@ -56,7 +56,7 @@ Bewegung nur nach vorne, nie zurück, um Feinde zu jagen. Verhindert dass die ga
 
 - Globaler Pool
 - Sofort fällig bei Bau- oder Produktionsstart
-- Gemeinsamer Flaschenhals für alle Gebäude
+- Gemeinsames Bottleneck für alle Gebäude
 
 ---
 
@@ -70,10 +70,10 @@ Bewegung nur nach vorne, nie zurück, um Feinde zu jagen. Verhindert dass die ga
 
 ---
 
-## Das Konter-System
+## Konter-System
 
-5 Einheiten, 2 Türme, ein Kreis:
-jede Einheit kontert genau 2, wird von genau 2 gekontert
+5 Einheiten, 2 Türme
+Jede Einheit kontert genau 2, wird von genau 2 gekontert
 
 | Einheit | Kontert | Gekontert von |
 |---|---|---|
@@ -83,29 +83,28 @@ jede Einheit kontert genau 2, wird von genau 2 gekontert
 | Hovercraft | Tank, Soldier | Gunner, Explosive |
 | Heavy Tank | Soldier, Gunner | Explosive, Hovercraft |
 
-Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
+Keine All-Rounder
 
 ---
 
 <!-- _class: section -->
 
 # Demo
-
+<!--
 ---
 
 ## Ablauf einer Partie
 
 1. Hauptmenü: Modus + KI-Schwierigkeit wählen
-2. Match-Start: symmetrische Karte, 2 Lanes
+2. Match-Start: symmetrische Karte
 3. Aufbau: Gebäude aus dem Shop platzieren
 4. Kampf: Einheiten greifen autonom an
 5. Ende: HQ fällt, Endscreen erscheint
 
-*(Live-Demo im Unity-Editor)*
 
 ---
 
-## Das zeigen wir live
+## Things to show
 
 - Ghost-Preview beim Platzieren
 - Energie-/Produktionsbalken
@@ -113,7 +112,7 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 - Konter-Kämpfe (z. B. Hovercraft vs. Tank)
 - Death-Explosion
 - Die NPC beim Bauen und Angreifen
-
+-->
 ---
 
 <!-- _class: section -->
@@ -145,8 +144,7 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 - Naiv: jeden Frame die ganze Szene durchsuchen
 - Stattdessen: `UnitRegistry`, `BuildingRegistry`
 - Einheiten melden sich selbst an/ab
-- O(1) Lookup statt Suche, jeden Frame
-
+<!--
 ---
 
 ## Entscheid: Prioritätenliste statt Zustandsmaschine
@@ -155,7 +153,7 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 - Keine komplexe State Machine, keine Utility-KI
 - Leicht nachvollziehbar, leicht zu debuggen
 - Komplexität nur, wo sie etwas bringt
-
+-->
 ---
 
 ## Prinzip: gleiche Werte, unterschiedliche Taktik
@@ -178,7 +176,7 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 - Kein Aufbau von Null bei jedem Testlauf
 - Manuelles Playtesting und Balancing
 - Pre-Commit-Hook scannt auf Secrets/Keys
-
+<!--
 ---
 
 ## Bug-Story: Slot-Leak
@@ -187,14 +185,7 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 - Platz auf der Karte ging "verloren"
 - Fix: `MapGrid.RemoveBuilding` läuft jetzt zuverlässig
 - Lehre: Registrierung/Deregistrierung muss lückenlos sein
-
----
-
-## Offene Punkte
-
-- Multiplayer: bewusst Post-MVP
-- Nur Platzhalter-Sprites und Sounds bisher
-
+-->
 ---
 
 <!-- _class: section -->
@@ -205,9 +196,9 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 
 ## Was gut lief
 
-- Daten statt Code: Balancing schnell und risikoarm
-- Autonome Einheiten: wenig Komplexität für Spieler
-- Konter-System: einfach, aber schwierig intuitiv darzustellen
+- Daten statt Code für schnelles Tweaking
+- Autonome Einheiten
+- Testen mit Testscene
 
 ---
 
@@ -215,6 +206,7 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 
 - Metal und Energy als zwei Bottlenecks: viel Iteration und Tuning
 - UI kostet viel Zeit
+- Konter-System schwierig intuitiv darzustellen
 
 ---
 
@@ -223,7 +215,7 @@ Keine Allzweckwaffe. Für jeden gibt es ein Gegenmittel.
 - Echte Sprites und Sounds statt Platzhalter
 - Breiteres Playtesting für KI-Schwierigkeit und Balancing
 - UI verschönern
-- Danach: Multiplayer als nächster grosser Meilenstein
+- Multiplayer als nächster grosser Meilenstein
 
 ---
 
