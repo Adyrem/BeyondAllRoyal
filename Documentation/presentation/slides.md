@@ -216,6 +216,7 @@ Keine All-Rounder
 - Breiteres Playtesting für KI-Schwierigkeit und Balancing
 - UI verschönern
 - Multiplayer als nächster grosser Meilenstein
+- Unit pathing und priorisierung überarbeiten
 
 ---
 
